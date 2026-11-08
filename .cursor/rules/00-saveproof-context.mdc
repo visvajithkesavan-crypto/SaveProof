@@ -1,0 +1,72 @@
+---
+description: SaveProof project brief, scope, stack, layout and data contract. Always loaded.
+alwaysApply: true
+---
+
+# SaveProof — project context
+
+## What we are building
+SaveProof turns an Indian MSME factory's energy data (DISCOM bills or 15-min meter data) plus production records into **verified energy savings with an uncertainty band**, delivered as an MRV report that a BEE-certified energy auditor reviews and signs.
+- Competition: Schneider Electric Yuva Yodha, Challenge 4 (Smart Manufacturing). Prototype due **22 Nov 2026**; we submit **20 Nov**.
+- Primary user: the BEE-empanelled energy auditor doing ADEETIE MRV. Secondary: MSME owner, lender.
+- Why it matters: ADEETIE pays interest subvention only if ≥10% energy savings are achieved and sustained. A naive before/after bill comparison, or BEE's SEC-ratio formula, misreads savings whenever production changes.
+
+## In scope
+1. Baseline model: daily/monthly kWh ~ production + operating days (+ day type), fitted on the baseline period only.
+2. Verified savings + uncertainty band (ASHRAE Guideline 14 statistics) and an ADEETIE verdict.
+3. Comparators: naive bill comparison and BEE SEC-ratio.
+4. Three validation experiments: null test, injected saving, blind simulator test.
+5. Data quality score; CUSUM drift alarm.
+6. Streamlit app + 1–2 page MRV report PDF (with CO₂).
+
+## Out of scope (don't build unless asked)
+Auth, databases, user accounts, Docker, cloud infra, real hardware, OCR for many bill formats, Tally/ERP integration, multi-language UI, lender portal, weather models, ML beyond one optional comparison.
+
+## Cut order if late
+Modbus meter simulator → bill parser → drift UI → dashboard polish. Never cut: engine, the three experiments, MRV report.
+
+## Stack (don't add to it without asking)
+Python 3.11+, pandas, numpy, statsmodels, scipy, matplotlib, streamlit, reportlab, pytest, ruff. Optional stretch: pymodbus.
+
+## Repository layout
+```
+SaveProof/
+  streamlit_app.py      # UI only; no calculations
+  saveproof/            # the Python package
+    config.py           # constants with sources (thresholds, CEA grid factor)
+    contract.py         # the data contract + validate()
+    ingest/             # one adapter function per source → contract table
+    quality.py          # data quality score
+    engine/             # baseline, stats, savings, comparators, drift (pure functions)
+    report/             # charts, MRV PDF, CO₂
+  experiments/          # scripts that run validation and write to results/
+  tests/
+  results/              # small CSV/PNG evidence, committed
+  docs/                 # architecture.md, decisions.md, validation_plan.md, AI_USE.md
+  data/                 # gitignored: raw/ (read-only) and processed/
+```
+
+## Data contract — the one table every layer speaks
+One row per period (day, month or billing cycle):
+
+| column | type | notes |
+|---|---|---|
+| period_start, period_end | date | plant-local; end inclusive; bills are irregular — never assume calendar months |
+| kwh | float ≥ 0 | energy consumed in the period |
+| production | float ≥ 0, nullable | output quantity |
+| production_unit | str | t, pcs, m, kL, or `proxy:<name>` when it isn't a real quantity |
+| operating_days | float | days the plant actually ran in the period |
+| source | str | `real_meter`, `utility_bill`, `simulated` |
+| dataset | str | e.g. `uci_steel`, `irish_mi_a`, `sim_foundry_007` |
+| coverage_pct | float 0–100 | share of expected readings present |
+| event | str, nullable | `retrofit`, `shutdown`, `meter_fault`, `holiday` |
+
+Optional bill columns: `kvah`, `max_demand_kva`, `power_factor`.
+Plant metadata travels separately (dataclass): plant_id, sector, timezone, retrofit_date, baseline and reporting period dates.
+
+## Data available locally
+`C:\Users\visva\Projects\SaveProof_Datasets` — read its DATA_SOURCES.md. UCI Steel (Korea, 15-min, 2018), Irish manufacturing site (15-min, 2025), ITAC (US DOE), BEE SME DPRs and UNIDO compendiums (India), CEA CO₂ v22.0, Schneider EM6400 register map. No public Indian monthly plant series exists; Indian figures calibrate the simulator.
+
+## Glossary
+SEC = specific energy consumption (kWh per unit output). IPMVP Option C = whole-facility M&V from the main meter. MRV = monitoring, reporting, verification. ADEETIE = BEE's MSME interest-subvention scheme (≥10% sustained savings). DISCOM = electricity distribution company. HT/LT = high/low-tension tariff. kVAh billing = energy billed on apparent energy. ToD = time-of-day tariff.
+Careful: "CEA" means both the Central Electricity Authority (grid emission factor) and a BEE Certified Energy Auditor. In code use `grid_factor` and `auditor`, never `cea`.

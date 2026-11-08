@@ -1,0 +1,47 @@
+---
+description: How we write code in SaveProof — simplicity, energy-data correctness, change workflow, repo hygiene, data licensing, AI-use disclosure. Always loaded.
+alwaysApply: true
+---
+
+# Engineering standards
+
+Two students, 12 days. Every line must earn its place. When in doubt, pick the boring, obvious option.
+
+## Simplicity
+- Functions first. Use a class only for a data record (`@dataclass(frozen=True)`) or genuinely stateful code. No abstract base classes, registries, factories, plugin systems or dependency injection.
+- Adapters are plain functions: `load_<source>(path) -> pd.DataFrame` returning the contract table.
+- No speculative code: no parameters nobody passes, no "future" hooks, no config option without a current caller. Delete dead code; git remembers it.
+- Prefer pandas/numpy/statsmodels built-ins over hand-rolled maths, except where a formula must match ASHRAE Guideline 14 exactly — then write it out with the source in a comment.
+- Smell thresholds (signals to split, not laws): function > 40 lines, module > 300 lines, nesting > 3 levels, > 4 parameters.
+- Constants live in `saveproof/config.py`, each with a comment citing its source (document + page, or URL). Never hard-code a threshold or factor anywhere else.
+- No new dependency without saying why in the commit message.
+
+## Energy-data correctness
+- Units in every name: `kwh`, `kw`, `kvah`, `tco2`, `kwh_per_t`, `pct`. Never a bare `energy`, `value` or `data`.
+- Resampling: energy is summed, power is averaged. Never mix them.
+- Timestamps: say in the name or docstring whether they're UTC or plant-local and whether they mark interval start or end. India has no DST; Ireland does.
+- Fail loudly on bad input (`raise ValueError` naming the column and first bad row). Never silently drop, fill or clip data — flag it.
+- Never invent a number, threshold, citation or dataset fact. If unknown, write `TODO(verify)` and ask.
+
+## Workflow for every change (Cursor agent: follow this)
+1. Restate the goal in one sentence and list the files you'll touch. If it's more than 3 files or a new module, apply the `architecture-guard` skill first.
+2. Make the smallest change that works. Don't rewrite a working file to change a few lines.
+3. Add or update a test in the same change. Run `pytest -q`; it must pass.
+4. Run `ruff check . --fix` and `ruff format .`.
+5. Summarise what changed and anything you were unsure about.
+
+## Code style
+- Type hints on every public function. Docstrings: inputs, outputs and units in one or two lines.
+- Comments explain *why* (especially domain reasons, with source), not *what*.
+- `snake_case`, descriptive names; only standard abbreviations (kwh, sec, cusum, fsu, nmbe).
+- Any randomness takes a `rng` or `seed` argument; defaults are fixed.
+
+## Repo hygiene
+- Small commits, one idea each: `engine: add fractional savings uncertainty`.
+- `data/` is gitignored. Never commit raw datasets, BEE/UNIDO/CEA PDFs, the Schneider register map, or ASI microdata — their licences don't allow it. Small derived results in `results/` are fine.
+- Never commit `.env` or credentials.
+
+## AI-use disclosure (competition rule)
+The hackathon T&C forbid *unauthorized* AI-generated code. We disclose all AI assistance.
+- When AI writes or substantially changes code, append a line to `docs/AI_USE.md`: date, files, what the AI did, who reviewed it.
+- A human reads and understands every line before it's committed. Don't commit code you couldn't explain to a judge.

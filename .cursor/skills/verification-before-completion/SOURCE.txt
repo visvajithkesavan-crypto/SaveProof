@@ -1,0 +1,2 @@
+Copied unmodified from https://github.com/obra/superpowers (skills/verification-before-completion) at commit 22f0b463e7a5e579904dd6211a520321035526f7.
+Licence: MIT, see LICENSE-superpowers.

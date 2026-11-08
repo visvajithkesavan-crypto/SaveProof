@@ -1,0 +1,3 @@
+Adapted from https://github.com/obra/superpowers (skills/test-driven-development) at commit 22f0b463e7a5e579904dd6211a520321035526f7.
+writing-good-tests.md is unmodified. SKILL.md changes: paths scope, SaveProof note, dependency-injection line replaced.
+Licence: MIT, see LICENSE-superpowers.
