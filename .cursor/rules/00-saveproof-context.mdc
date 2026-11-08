@@ -51,7 +51,7 @@ One row per period (day, month or billing cycle):
 
 | column | type | notes |
 |---|---|---|
-| period_start, period_end | date | plant-local; end inclusive; bills are irregular — never assume calendar months |
+| period_start, period_end | datetime64, midnight, plant-local; end inclusive | bills are irregular — never assume calendar months |
 | kwh | float ≥ 0 | energy consumed in the period |
 | production | float ≥ 0, nullable | output quantity |
 | production_unit | str | t, pcs, m, kL, or `proxy:<name>` when it isn't a real quantity |

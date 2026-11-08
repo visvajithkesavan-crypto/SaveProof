@@ -15,16 +15,16 @@ class PlantMeta:
     plant_id: str
     sector: str
     timezone: str
-    baseline_start: date
-    baseline_end: date
-    reporting_start: date
-    reporting_end: date
-    retrofit_date: date | None
+    baseline_start: pd.Timestamp   # all dates: tz-naive, midnight, so they compare with datetime64 columns
+    baseline_end: pd.Timestamp
+    reporting_start: pd.Timestamp
+    reporting_end: pd.Timestamp
+    retrofit_date: pd.Timestamp | None
 
 def validate(df: pd.DataFrame) -> pd.DataFrame: ...   # raises ValueError; returns sorted copy
 ```
 `saveproof/config.py` — every value with its source comment:
-`CONFIDENCE_REPORT = 0.90`, `CONFIDENCE_ASHRAE = 0.68`, `FSU_MAX_ASHRAE = 0.50`, `CVRMSE_GUIDE = 0.25`, `NMBE_GUIDE = 0.005`, `R2_GUIDE = 0.70`, `COVERAGE_LOW = 0.90`, `COVERAGE_HIGH = 1.10`, `MAX_EXCLUDED_SHARE = 0.25`, `ADEETIE_THRESHOLD = 0.10`, `GRID_FACTOR_TCO2_PER_MWH = 0.675`.
+`CONFIDENCE_REPORT = 0.90`, `CONFIDENCE_ASHRAE = 0.68`, `FSU_MAX_ASHRAE = 0.50`, `CVRMSE_GUIDE = 0.25`, `NMBE_GUIDE = 0.005`, `R2_GUIDE = 0.70`, `PROD_RANGE_LOW_FACTOR = 0.90`, `PROD_RANGE_HIGH_FACTOR = 1.10`, `MAX_EXCLUDED_SHARE = 0.25`, `ADEETIE_THRESHOLD = 0.10`, `GRID_FACTOR_TCO2_PER_MWH = 0.675`.
 Test: `tests/test_contract.py` — a valid frame passes; each rule raises with the column name.
 Also write `docs/validation_plan.md` (pass criteria from the validation-testing skill) and commit it **before** any experiment runs.
 
