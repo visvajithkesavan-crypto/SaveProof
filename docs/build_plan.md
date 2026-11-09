@@ -41,14 +41,14 @@ Also write `docs/validation_plan.md` (pass criteria from the validation-testing 
 
 Result types (frozen dataclasses in the engine module that creates them):
 - `BaselineModel`: formula, params, n, p, r2, cvrmse, nmbe, rho, n_eff, production_min, production_max, plus the fitted statsmodels result for `predict` (excluded from `to_dict()`).
-- `SavingsResult`: adjusted_baseline_kwh, actual_kwh, savings_kwh, savings_pct, band_low_pct, band_high_pct, confidence, fsu, n, m, extrapolation, ashrae_ok, verdict ∈ {`verified`, `likely_not_proven`, `below`}.
+- `SavingsResult`: adjusted_baseline_kwh, actual_kwh, savings_kwh, savings_pct, band_low_pct, band_high_pct, confidence, fsu, n, m, extrapolation, ashrae_ok, verdict ∈ {`verified`, `likely_not_proven`, `below`}, decided exactly by `docs/validation_plan.md` §2 (adequacy gate with FSU at 10%, extrapolation gate, then band vs 10%).
 - `ComparatorResult`: method, savings_kwh, savings_pct.
 - `DriftResult`: alarm (bool), alarm_period_start (date | None), cusum_values (list[float]), threshold.
 
 ## Rohith — data, simulator, app
 | # | dates | task | receives | returns | proving test |
 |---|---|---|---|---|---|
-| R1 | 9–10 Nov | `ingest/uci.py`, `ingest/irish.py` | file path | `load_uci_steel(path) -> df` (daily, `production_unit="proxy:active_intervals"`); `load_irish(path) -> df` (daily, plant-local dates) | outputs pass `validate()`; UCI midnight-row trap handled (96 intervals per day) |
+| R1 | 9–10 Nov | `ingest/uci.py`, `ingest/irish.py` | file path | `load_uci_steel(path) -> df` (daily; `production` = daily lagging kVArh, `production_unit="proxy:kvarh_lagging"`; NOT `Load_Type`, which is a tariff clock); `load_irish(path) -> df` (grid incomer, daily in Europe/Dublin dates rebuilt from 15-min; `production` = same-day PV kWh from mi_b, `production_unit="proxy:pv_kwh"`) | outputs pass `validate()`; UCI midnight-row trap handled (96 intervals per day) |
 | R2 | 10 Nov | `quality.py` | contract df | `score(df) -> QualityReport` (total, completeness, continuity, plausibility, consistency, flags) | gaps and negatives in a fixture are flagged; Irish reliability flags agree |
 | R3 | 11–12 Nov | `ingest/simulator.py` | `SimParams`, `rng` | `simulate_plant(params, rng) -> tuple[df, PlantMeta, SimTruth]` | zero saving → engine reports ≈ 0; known saving → recovered within band |
 | R4 | 12–13 Nov | `experiments/make_blind_set.py`, `experiments/score_blind.py` | simulator | ≥ 200 plants in `data/processed/blind/`, truth in `data/blind_truth.csv` (engine code never reads it); scoring table in `results/` | scoring script reproduces a hand-checked plant |

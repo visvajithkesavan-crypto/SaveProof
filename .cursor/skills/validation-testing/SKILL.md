@@ -25,12 +25,12 @@ Two kinds of proof: **tests** show the code does what we meant; **experiments** 
 | regression | the minimal input that triggered a past bug |
 
 ## Validation experiments (scripts in experiments/, outputs in results/)
-Write the criteria below into `docs/validation_plan.md` and commit it **before** running anything. Don't change criteria after seeing results; if one proves wrong, record the change and why.
+**`docs/validation_plan.md` is the authority.** Its specs, windows, verdict rule and pass criteria override the summary below. Read it before writing any experiment or verdict code. Change a criterion only through its deviation log, before rerunning.
 
 1. **Null test — real data, nothing changed.** UCI Steel: fit Jan–Aug, report Sep–Dec; plus rolling windows for many trials. Irish grid incomer: fit on the first 60%, report on the rest.
-   Pass: the 90% band contains 0 in ≥ 90% of windows (empirical coverage). False "Verified ≥ 10%" rate: target 0.
+   Pass: zero "verified" verdicts. Coverage is reported, not gated: rolling windows overlap, so there are few independent trials (see the plan, §4).
 2. **Injected saving — real noise, known answer.** Multiply reporting kWh by (1 − s), s ∈ {5, 7, 10, 12, 15}%; plus a load-shape version that cuts only high-load intervals.
-   Pass: true s inside the 90% band in ≥ 90% of trials; mean error < 1 percentage point; ADEETIE verdict correct except where the band honestly straddles 10%.
+   Pass: zero "verified" at s ≤ 7%; calendar-only specs never verify; power at 10/12/15% reported (see the plan, §5). Uniform injection is algebra on the null result, so recovery error is not a criterion.
 3. **Blind simulator test.** Rohith generates ≥ 200 plants with hidden true savings (0–20%), production swings (±30%), product-mix shifts, shutdowns and AR(1) noise. The engine sees only the contract tables; the truth is read only by the scoring script.
    Report per method (SaveProof, naive, BEE SEC-ratio): mean absolute error (pp), bias, band coverage (ours), and **wrong-side-of-10% rate**. This table is the headline slide.
 
