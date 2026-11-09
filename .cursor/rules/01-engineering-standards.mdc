@@ -27,6 +27,7 @@ Two students, 12 days. Every line must earn its place. When in doubt, pick the b
 1. Restate the goal in one sentence and list the files you'll touch. If it's more than 3 files or a new module, apply the `architecture-guard` skill first.
 2. Make the smallest change that works. Don't rewrite a working file to change a few lines.
 3. Add or update a test in the same change. Run `pytest -q`; it must pass.
+   Run Python only through `.\.venv\Scripts\python.exe` (pytest, ruff, pip), e.g. `.\.venv\Scripts\python.exe -m pytest -q`. Never install into the system Python.
 4. Run `ruff check . --fix` and `ruff format .`.
 5. Summarise what changed and anything you were unsure about.
 

@@ -30,6 +30,9 @@ MIN_COVERAGE_PCT = 90.0
 # Max share of baseline periods that may be excluded for events before the baseline is rejected.
 # Unit: fraction. Source: SaveProof rule
 MAX_EXCLUDED_SHARE = 0.25
+# Minimum residual degrees of freedom (n - p) of a baseline fit, below which it is rejected.
+# Unit: dimensionless count. Source: SaveProof rule
+MIN_BASELINE_DOF = 5
 # Empirical factor in the fractional savings uncertainty of MONTHLY models, dimensionless.
 # Source: Reddy & Claridge 2000, as reproduced in ASHRAE Guideline 14 / TAMU ESL-IC-09-11-23
 FSU_MONTHLY_FACTOR = 1.26

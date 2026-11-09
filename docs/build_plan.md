@@ -32,15 +32,17 @@ Also write `docs/validation_plan.md` (pass criteria from the validation-testing 
 | # | dates | task | receives | returns | proving test |
 |---|---|---|---|---|---|
 | V1 | 9 Nov | `engine/stats.py` | arrays | `cvrmse(y, yhat, p) -> float`, `nmbe(y, yhat, p) -> float`, `lag1_autocorr(resid) -> float`, `n_effective(n, rho) -> float`, `savings_uncertainty_kwh(cv, n, p, rho, m, adjusted_baseline_kwh, confidence, monthly: bool) -> float` | hand-computed 6-row example; uncertainty independent of savings size |
-| V2 | 9–10 Nov | `engine/baseline.py` | contract df (baseline rows) | `fit_baseline(df, formula="kwh ~ production + operating_days") -> BaselineModel`; `predict(model, df) -> pd.Series` | known answer: `kwh = 180 + 0.4·production + noise` recovers 180 and 0.4 |
+| V2 | 9–10 Nov | `engine/baseline.py` | contract df (baseline rows) | `fit_baseline(df, formula="kwh ~ production + operating_days") -> BaselineModel`; `predict(model, df) -> pd.Series` (`kwh_pred`); `add_calendar_terms(df) -> df` (adds `day_type` = weekday/weekend from `period_start`, and `period_days` = calendar days, end inclusive; neither is a contract column; `fit_baseline` raises if monthly data uses `day_type`); `usable_rows(df, formula) -> pd.Series[bool]` (V3 reuses it); `InsufficientDataError(ValueError)` | known answer: `kwh = 180 + 0.4·production + noise` recovers 180 and 0.4 |
 | V3 | 10 Nov | `engine/savings.py` | `BaselineModel`, contract df (reporting rows) | `verify_savings(model, df, confidence=CONFIDENCE_REPORT) -> SavingsResult` | identical periods → savings ≈ 0; kWh × k → savings % unchanged |
 | V4 | 11 Nov | `engine/comparators.py` | baseline df, reporting df | `naive_savings(...) -> ComparatorResult`, `bee_sec_savings(...) -> ComparatorResult` | production +20%, no retrofit → SEC-ratio > 0, SaveProof ≈ 0 |
 | V5 | 11–12 Nov | `experiments/null_test.py`, `experiments/injected_saving.py` | Rohith's UCI + Irish loaders | CSV + PNG in `results/` | criteria in `docs/validation_plan.md` |
 | V6 | 13 Nov | `engine/drift.py` | `BaselineModel`, reporting df | `cusum(model, df) -> DriftResult` | planted 0.5%/week degradation triggers alarm; untouched data → false-alarm rate reported |
 | V7 | 14–15 Nov | `report/co2.py`, `report/mrv_pdf.py` | result dataclasses + `PlantMeta` + `QualityReport` | `tco2_avoided(savings_kwh) -> float`; `build_mrv_pdf(...) -> Path` | PDF opens; numbers equal `SavingsResult` fields |
 
+V2 note: monthly formula for the blind test is chosen on the dev set and written into `validation_plan.md` §6 before the blind run.
+
 Result types (frozen dataclasses in the engine module that creates them):
-- `BaselineModel`: formula, params, n, p, r2, cvrmse, nmbe, rho, n_eff, production_min, production_max, plus the fitted statsmodels result for `predict` (excluded from `to_dict()`).
+- `BaselineModel`: formula, params, n, p, r2, cvrmse, nmbe, rho, n_eff, production_min, production_max (NaN if the formula has no production), monthly (bool, baseline periods longer than one day), n_excluded (baseline periods dropped by `usable_rows`), plus the fitted statsmodels result for `predict` (excluded from `to_dict()`, which is JSON-serialisable). `fit_baseline` raises `InsufficientDataError` when more than `MAX_EXCLUDED_SHARE` of periods are excluded or n − p < `MIN_BASELINE_DOF`.
 - `SavingsResult`: adjusted_baseline_kwh, actual_kwh, savings_kwh, savings_pct, band_low_pct, band_high_pct, confidence, fsu, n, m, extrapolation, ashrae_ok, verdict ∈ {`verified`, `likely_not_proven`, `below`}, decided exactly by `docs/validation_plan.md` §2 (adequacy gate with FSU at 10%, extrapolation gate, then band vs 10%).
 - `ComparatorResult`: method, savings_kwh, savings_pct.
 - `DriftResult`: alarm (bool), alarm_period_start (date | None), cusum_values (list[float]), threshold.
