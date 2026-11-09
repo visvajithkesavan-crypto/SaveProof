@@ -30,6 +30,19 @@ MIN_COVERAGE_PCT = 90.0
 # Max share of baseline periods that may be excluded for events before the baseline is rejected.
 # Unit: fraction. Source: SaveProof rule
 MAX_EXCLUDED_SHARE = 0.25
+# Empirical factor in the fractional savings uncertainty of MONTHLY models, dimensionless.
+# Source: Reddy & Claridge 2000, as reproduced in ASHRAE Guideline 14 / TAMU ESL-IC-09-11-23
+FSU_MONTHLY_FACTOR = 1.26
+# Replaces FSU_MONTHLY_FACTOR for DAILY models: alpha = a*x^2 + b*x + c with x = m / days per month,
+# m = reporting-period points. Dimensionless. Coefficients (a, b, c) ported from the daily branch of
+# calculate_savings_and_uncertainty.R in https://github.com/kW-Labs/nmecr (kW-Labs, MIT licence).
+# Same coefficients as the ECAM v6r5 'FSU factor'. nmecr/ECAM use (-0.00022, 0.03306, 0.94054)
+# for monthly billing data; we keep 1.26 for monthly (ASHRAE G14). At m=12 the two differ by ~4%.
+# TODO(verify): range of m for which the quadratic was fitted; not stated in nmecr.
+FSU_DAILY_ALPHA_COEFFS = (-0.00024, 0.03535, 1.00286)
+# Days per month used by nmecr to turn m daily points into x above: mean(30, 31). Unit: days.
+# Source: same nmecr file as FSU_DAILY_ALPHA_COEFFS
+FSU_DAILY_DAYS_PER_MONTH = 30.5
 # Minimum sustained energy savings for ADEETIE interest subvention, fraction of baseline.
 # Source: ADEETIE Operational Guidelines, TODO(verify page)
 ADEETIE_THRESHOLD = 0.10

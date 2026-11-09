@@ -38,3 +38,8 @@ absolute form (use when savings ≈ 0, e.g. null test):
 Reference implementations: nmecr (R, ASHRAE G14 uncertainty incl. daily/hourly handling) and OpenDSM (Python, formerly OpenEEmeter, CalTRACK methods). Port logic in our own code with an attribution comment; don't copy files.
 
 statsmodels `get_prediction().summary_frame(alpha=…)` gives OLS prediction intervals. With autocorrelated daily residuals these are too narrow unless corrected (HAC standard errors or the n′ correction). Compare both in the null test and report which one achieves its nominal coverage.
+
+## Implemented choices (saveproof/engine/stats.py, `savings_uncertainty_kwh`)
+- **Daily** (`monthly=False`): the nmecr alpha polynomial replaces 1.26, with n′ in the t degrees of freedom (n′ − p) and in the MSE. The reporting period must be at most 12 months (m / 30.5 ≤ 12); the code raises beyond that.
+- **Monthly** (`monthly=True`): 1.26 with the n/n′ inflation, as in ASHRAE G14. nmecr/ECAM use a quadratic for monthly data instead; we keep 1.26 (at m = 12 the two differ by ~4%).
+- **Autocorrelation:** ρ is clamped at 0 (negative ρ never narrows the band) and n′ is applied for every ρ > 0. This deliberately drops nmecr's ρ ≥ 0.5 switch, which makes the band jump ~1.8× between ρ 0.49 and 0.51.
