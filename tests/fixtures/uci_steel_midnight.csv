@@ -1,0 +1,5 @@
+﻿date,Usage_kWh,Lagging_Current_Reactive.Power_kVarh,Leading_Current_Reactive_Power_kVarh,Load_Type
+01/01/2018 00:15,1,10,1000,Light_Load
+01/01/2018 23:45,2,20,2000,Medium_Load
+02/01/2018 00:00,3,30,3000,Maximum_Load
+02/01/2018 00:15,4,40,4000,Light_Load
