@@ -31,8 +31,9 @@ def _numeric_column(raw: pd.DataFrame, column: str) -> pd.Series:
 def load_uci_steel(path: str | Path) -> pd.DataFrame:
     """Read UCI Steel CSV and return daily kWh and lagging-kVArh contract rows.
 
-    CSV timestamps are interval ends in ``dd/mm/YYYY HH:MM`` format. Subtracting 15 minutes
-    before taking the date assigns midnight-ending intervals to the preceding calendar day.
+    CSV timestamps are interval ends in ``dd/mm/YYYY HH:MM`` format, except that each day's
+    ``00:00`` row is midnight at the END of its labelled day, so every row belongs to the
+    labelled date. period_start is that date (plant-local, Korea).
     """
     raw = pd.read_csv(path, encoding="utf-8-sig")
     raw.columns = raw.columns.str.strip()
@@ -44,16 +45,25 @@ def load_uci_steel(path: str | Path) -> pd.DataFrame:
         raise ValueError("UCI CSV contains duplicate column names after trimming whitespace")
 
     try:
-        interval_ends = pd.to_datetime(
-            raw[_DATE_COLUMN], format="%d/%m/%Y %H:%M", errors="raise"
-        )
+        labels = pd.to_datetime(raw[_DATE_COLUMN], format="%d/%m/%Y %H:%M", errors="raise")
     except (TypeError, ValueError) as error:
         raise ValueError(f"column '{_DATE_COLUMN}' must use dd/mm/YYYY HH:MM timestamps") from error
-    if interval_ends.duplicated().any():
-        row = int(interval_ends.duplicated().to_numpy().argmax())
+    if labels.duplicated().any():
+        row = int(labels.duplicated().to_numpy().argmax())
         raise ValueError(f"column '{_DATE_COLUMN}': row {row} has a duplicate timestamp")
-    if not interval_ends.dt.minute.isin([0, 15, 30, 45]).all():
+    if not labels.dt.minute.isin([0, 15, 30, 45]).all():
         raise ValueError(f"column '{_DATE_COLUMN}' contains a timestamp off the 15-minute grid")
+
+    # The "D 00:00" row follows "D 23:45" in the file (NSM = 0): its true end is D+1 00:00.
+    is_midnight = labels == labels.dt.normalize()
+    interval_ends = labels.where(~is_midnight, labels + pd.Timedelta(days=1))
+    out_of_order = interval_ends.diff() <= pd.Timedelta(0)
+    if out_of_order.any():
+        row = int(out_of_order.to_numpy().argmax())
+        raise ValueError(
+            f"column '{_DATE_COLUMN}': row {row} is not after the previous interval end; "
+            "expected each 00:00 row to follow 23:45 of the same labelled day"
+        )
 
     kwh = _numeric_column(raw, _KWH_COLUMN)
     production = _numeric_column(raw, _PRODUCTION_COLUMN)
