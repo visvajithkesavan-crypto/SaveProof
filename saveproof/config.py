@@ -24,6 +24,10 @@ PROD_RANGE_LOW_FACTOR = 0.90
 # A reporting period is flagged as extrapolation if production > this x baseline production_max.
 # Unit: dimensionless factor. Source: SaveProof rule
 PROD_RANGE_HIGH_FACTOR = 1.10
+# Max share of usable reporting periods whose production may lie outside the baseline range
+# [PROD_RANGE_LOW_FACTOR x min, PROD_RANGE_HIGH_FACTOR x max] before the verdict is "not proven".
+# Unit: fraction. Source: SaveProof rule, docs/validation_plan.md §2
+MAX_EXTRAPOLATED_SHARE = 0.25
 # Rows with coverage_pct below this are flagged by the quality score.
 # Unit: percent 0-100, same as the coverage_pct column. Source: SaveProof rule
 MIN_COVERAGE_PCT = 90.0

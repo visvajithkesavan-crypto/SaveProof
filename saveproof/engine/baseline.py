@@ -74,7 +74,7 @@ def usable_rows(df: pd.DataFrame, formula: str) -> pd.Series:
     return ~(has_event | low_coverage | missing_regressor)
 
 
-def _is_monthly(df: pd.DataFrame) -> bool:
+def is_monthly(df: pd.DataFrame) -> bool:
     days_in_period = df["period_days"]
     if (days_in_period == 1).all():
         return False
@@ -116,7 +116,7 @@ def fit_baseline(
     are excluded or n - p < MIN_BASELINE_DOF.
     """
     df = add_calendar_terms(validate(df))  # validate returns rows in period order
-    monthly = _is_monthly(df)
+    monthly = is_monthly(df)
     if monthly and "day_type" in _regressor_columns(df, formula):
         raise ValueError(
             f"formula {formula!r} uses day_type, which is defined by a single date and is "
