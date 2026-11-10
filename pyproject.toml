@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+filterwarnings = ["ignore:The 'generic' unit for NumPy timedelta:DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
