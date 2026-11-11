@@ -1,0 +1,219 @@
+{
+  "experiment": "injected_saving",
+  "label": "injected (real noise, synthetic saving)",
+  "git_hash": "de4c899",
+  "plan": "docs/validation_plan.md",
+  "plan_commit": "74bb2e9",
+  "plan_signoff_commit": "920fbcd",
+  "datasets": {
+    "uci_steel": {
+      "rows": 365,
+      "first_date": "2018-01-01",
+      "last_date": "2018-12-31"
+    },
+    "irish_mi_a": {
+      "rows": 222,
+      "first_date": "2025-05-23",
+      "last_date": "2025-12-31"
+    }
+  },
+  "counts": {
+    "UCI-A": {
+      "runs": 180,
+      "ok": 180,
+      "insufficient_data": 0
+    },
+    "UCI-B": {
+      "runs": 180,
+      "ok": 180,
+      "insufficient_data": 0
+    },
+    "IR-A": {
+      "runs": 168,
+      "ok": 168,
+      "insufficient_data": 0
+    },
+    "IR-B": {
+      "runs": 168,
+      "ok": 168,
+      "insufficient_data": 0
+    }
+  },
+  "criteria": {
+    "I1": {
+      "plan_wording": "zero verified at s in {0, 5, 7}%, for both shapes and every spec",
+      "hard": true,
+      "pass": false,
+      "n_verified": 62,
+      "n_scored": 348,
+      "n_insufficient": 0
+    },
+    "I2": {
+      "plan_wording": "any spec that fails the adequacy gate gives zero verified at every s (amended 2026-11-10, see \u00a78)",
+      "evaluated_as": "runs with ashrae_ok False, every s and shape",
+      "hard": true,
+      "pass": true,
+      "n_verified": 0,
+      "n_scored": 264,
+      "n_insufficient": 0
+    },
+    "I2_original": {
+      "plan_wording": "UCI-A and IR-A give zero verified at every s (signed off 2026-11-09; superseded by the amendment, reported for transparency)",
+      "hard": false,
+      "pass": true,
+      "n_verified": 0,
+      "n_scored": 348,
+      "n_insufficient": 0
+    },
+    "I3": {
+      "plan_wording": "the verified rate at s = 10, 12, 15% for UCI-B and IR-B, which is the power curve (reported here for every spec)",
+      "hard": false,
+      "per_spec": {
+        "UCI-A": {
+          "uniform": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            }
+          },
+          "weekday_only": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            }
+          }
+        },
+        "UCI-B": {
+          "uniform": {
+            "10": {
+              "verified_rate": 0.8666666666666667,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.9333333333333333,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 1.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            }
+          },
+          "weekday_only": {
+            "10": {
+              "verified_rate": 0.8666666666666667,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.9333333333333333,
+              "n_scored": 15,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 1.0,
+              "n_scored": 15,
+              "n_insufficient": 0
+            }
+          }
+        },
+        "IR-A": {
+          "uniform": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            }
+          },
+          "weekday_only": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            }
+          }
+        },
+        "IR-B": {
+          "uniform": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            }
+          },
+          "weekday_only": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 14,
+              "n_insufficient": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
