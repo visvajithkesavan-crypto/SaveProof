@@ -383,3 +383,10 @@ def test_to_dict_round_trips_through_json_and_excludes_the_result():
     assert json.loads(json.dumps(d)) == d
     assert d["formula"] == DAY_TYPE_FORMULA
     assert d["n"] == 100
+
+
+def test_model_records_the_baseline_production_unit():
+    """The proxy gate (addendum §9) reads it from the model."""
+    df = daily_frame(np.random.default_rng(42), n=100).assign(production_unit="proxy:pv_kwh")
+    assert fit_baseline(df, DAY_TYPE_FORMULA).production_unit == "proxy:pv_kwh"
+    assert fit_baseline(df, DAY_TYPE_FORMULA).to_dict()["production_unit"] == "proxy:pv_kwh"

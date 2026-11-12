@@ -53,6 +53,14 @@ FSU_DAILY_DAYS_PER_MONTH = 30.5
 # Minimum sustained energy savings for ADEETIE interest subvention, fraction of baseline.
 # Source: ADEETIE Operational Guidelines, TODO(verify page)
 ADEETIE_THRESHOLD = 0.10
+# Baseline stability flag, significance: the slope of baseline residuals on days since baseline
+# start is significant if its two-sided Newey-West p-value is below this. A reported flag, not a
+# verdict gate. Unit: probability. Source: docs/validation_addendum_v5b.md §10
+STABILITY_P_MAX = 0.05
+# Baseline stability flag, materiality: drift share D = |slope| x (n - 1) / mean baseline kWh must
+# be at least this (half of ADEETIE_THRESHOLD). Unit: fraction of mean baseline kWh.
+# Source: docs/validation_addendum_v5b.md §10
+STABILITY_DRIFT_SHARE_MIN = 0.05
 # Grid emission factor, tCO2 per MWh.
 # Source: CEA CO2 Baseline Database v22.0, FY2025-26 weighted average
 GRID_FACTOR_TCO2_PER_MWH = 0.675

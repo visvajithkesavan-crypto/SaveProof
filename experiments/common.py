@@ -65,6 +65,11 @@ def _git(*args: str) -> str:
     ).stdout.strip()
 
 
+def last_commit(path: str) -> str:
+    """Short hash of the latest commit touching `path` (repo-relative), read at run time."""
+    return _git("log", "-1", "--format=%h", "--", path)
+
+
 def current_git_hash() -> str:
     """Short HEAD hash, with "-dirty" if anything outside results/ is uncommitted or untracked."""
     short = _git("rev-parse", "--short", "HEAD")

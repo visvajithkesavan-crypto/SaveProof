@@ -1,6 +1,7 @@
 """Verified savings: adjusted baseline minus actual kWh over the reporting period, an uncertainty
-band, and the ADEETIE verdict. The verdict rule is docs/validation_plan.md §2 (SaveProof's own
-proposal; BEE does not define how to treat uncertainty).
+band, and the ADEETIE verdict. The verdict rule is docs/validation_plan.md §2 plus the proxy gate
+of docs/validation_addendum_v5b.md §9 (SaveProof's own proposal; BEE does not define how to treat
+uncertainty).
 
 Reporting-period frame in, SavingsResult out. All *_pct fields are PERCENT (0-100), so compare
 them with 100 * ADEETIE_THRESHOLD. Dates are plant-local (contract).
@@ -62,15 +63,31 @@ class SavingsResult:
         return out
 
 
-def decide_verdict(
-    band_low_pct: float, band_high_pct: float, ashrae_ok: bool, extrapolated_share: float
-) -> str:
-    """Verdict per docs/validation_plan.md §2 steps 3-4. Band in percent of the adjusted baseline.
+PROXY_GATE_FAILURE = "production variable is not measured output (proxy or absent)"
 
-    Either gate failing gives "likely_not_proven": a bad model can never verify or rule out 10%.
+
+def production_is_measured(model: BaselineModel) -> bool:
+    """Proxy gate (addendum §9): the formula has a production term and production_unit does not
+    start with "proxy:" (loaders label electrical, estimated, calendar and modelled values so)."""
+    has_production_term = not np.isnan(model.production_min)
+    return has_production_term and not model.production_unit.startswith("proxy:")
+
+
+def decide_verdict(
+    band_low_pct: float,
+    band_high_pct: float,
+    ashrae_ok: bool,
+    extrapolated_share: float,
+    production_measured: bool,
+) -> str:
+    """Verdict per docs/validation_plan.md §2 steps 3-4 and the proxy gate of addendum §9. Band in
+    percent of the adjusted baseline.
+
+    Any gate failing gives "likely_not_proven": a bad model can never verify or rule out 10%.
     Otherwise "verified" if the whole band is at or above 10%, "below" if it is entirely below.
     """
-    if not ashrae_ok or extrapolated_share > MAX_EXTRAPOLATED_SHARE:
+    gates_ok = ashrae_ok and extrapolated_share <= MAX_EXTRAPOLATED_SHARE and production_measured
+    if not gates_ok:
         return "likely_not_proven"
     threshold_pct = 100 * ADEETIE_THRESHOLD
     if band_low_pct >= threshold_pct:
@@ -159,6 +176,8 @@ def verify_savings(
         if extrapolated_share > MAX_EXTRAPOLATED_SHARE
         else []
     )
+    production_measured = production_is_measured(model)
+    proxy_failures = [] if production_measured else [PROXY_GATE_FAILURE]
     band_low_pct = savings_pct - half_width_pct
     band_high_pct = savings_pct + half_width_pct
     ashrae_ok = not ashrae_failures
@@ -176,6 +195,8 @@ def verify_savings(
         m_excluded=m_excluded,
         extrapolated_share=extrapolated_share,
         ashrae_ok=ashrae_ok,
-        verdict=decide_verdict(band_low_pct, band_high_pct, ashrae_ok, extrapolated_share),
-        gate_failures=(*ashrae_failures, *extrapolation_failures),
+        verdict=decide_verdict(
+            band_low_pct, band_high_pct, ashrae_ok, extrapolated_share, production_measured
+        ),
+        gate_failures=(*ashrae_failures, *extrapolation_failures, *proxy_failures),
     )

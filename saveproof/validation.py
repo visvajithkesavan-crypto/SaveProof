@@ -1,6 +1,7 @@
 """Validation experiments as pure functions: model specs, null-test windows, injected savings and
 the pre-registered pass criteria. The authority is docs/validation_plan.md §3 (specs), §4 (null
-test), §5 (injected saving) and §8 (I2 amendment); every constant here cites it.
+test), §5 (injected saving) and §8 (I2 amendment); every constant here cites it. The V5b section
+at the end follows docs/validation_addendum_v5b.md and leaves the V5 functions unchanged.
 
 Frames are daily contract tables with plant-local dates; windows are selected on period_start
 (the day itself, since daily rows have period_start == period_end). No file I/O: the scripts in
@@ -18,7 +19,9 @@ from saveproof.engine.baseline import (
     fit_baseline,
     usable_rows,
 )
+from saveproof.engine.comparators import bee_sec_savings, naive_savings
 from saveproof.engine.savings import SavingsResult, verify_savings
+from saveproof.engine.stability import baseline_stability
 
 # Spec name -> (contract `dataset` value, formula). Source: docs/validation_plan.md §3.
 SPECS = {
@@ -263,3 +266,216 @@ def i3(injected_results: pd.DataFrame) -> dict:
                     "n_insufficient": counts["n_insufficient"],
                 }
     return out
+
+
+# ---------- V5b: Laayati mine, real production (docs/validation_addendum_v5b.md) ----------
+
+# One formula for all three stations. Source: addendum §5.
+V5B_FORMULA = "kwh ~ production"
+# The 32 days of the data set, plant-local. Source: addendum §3.
+V5B_DAYS = pd.date_range("2018-12-31", "2019-01-31")
+# Fixed split: baseline days 1-20, reporting days 21-32. Source: addendum §6.
+V5B_FIXED_BASELINE = (pd.Timestamp("2018-12-31"), pd.Timestamp("2019-01-19"))
+V5B_FIXED_REPORTING = (pd.Timestamp("2019-01-20"), pd.Timestamp("2019-01-31"))
+# Rolling: 14-day baseline, 7-day reporting, step 1 day -> 12 windows. Source: addendum §6.
+V5B_ROLLING_DAYS = (14, 7)
+V5B_ROLLING_STEP_DAYS = 1
+# Injected savings in percent, uniform shape only. Source: addendum §7.
+V5B_SAVING_PCTS = (0, 5, 7, 10, 12, 15)
+V5B_SHAPE = "uniform"
+# B2: zero verified at these; B6: comparator false verified at the low set, power at the high set.
+# Source: addendum §8.
+B2_SAVING_PCTS = (5, 7)
+B6_LOW_SAVING_PCTS = (0, 5, 7)
+B6_POWER_SAVING_PCTS = (10, 12, 15)
+METHODS = ("saveproof", "bee_sec", "naive")
+_SAVINGS_COLUMNS = {
+    "saveproof": "savings_pct",
+    "bee_sec": "bee_sec_savings_pct",
+    "naive": "naive_savings_pct",
+}
+VERDICT_COLUMNS = {"saveproof": "verdict", "bee_sec": "bee_sec_verdict", "naive": "naive_verdict"}
+_STABILITY_KEYS = ("slope_kwh_per_day", "p_value", "drift_share", "flagged")
+
+
+def v5b_windows(df: pd.DataFrame) -> list[Window]:
+    """Fixed split, then the 12 rolling windows (§6), of one station's daily frame. Raises
+    ValueError unless the frame holds exactly the 32 days 2018-12-31 to 2019-01-31."""
+    df = validate(df)
+    if len(df) != len(V5B_DAYS) or not (df["period_start"].to_numpy() == V5B_DAYS).all():
+        raise ValueError(
+            f"V5b needs the {len(V5B_DAYS)} days 2018-12-31 to 2019-01-31 (addendum §3, §6); "
+            f"frame has {len(df)} rows from {df['period_start'].iloc[0].date()} "
+            f"to {df['period_start'].iloc[-1].date()}"
+        )
+    fixed = _window("fixed", df, V5B_FIXED_BASELINE, V5B_FIXED_REPORTING)
+    return [fixed, *rolling_windows(df, *V5B_ROLLING_DAYS, step_days=V5B_ROLLING_STEP_DAYS)]
+
+
+def window_stability(baseline: pd.DataFrame, formula: str) -> dict:
+    """baseline_stability (§10) of the model fitted on `baseline`, as stability_* columns; all
+    None when fit_baseline raises InsufficientDataError."""
+    try:
+        result = baseline_stability(fit_baseline(baseline, formula)).to_dict()
+    except InsufficientDataError:
+        result = dict.fromkeys(_STABILITY_KEYS)
+    return {f"stability_{key}": result[key] for key in _STABILITY_KEYS}
+
+
+def compare_methods(baseline: pd.DataFrame, reporting: pd.DataFrame, formula: str) -> dict:
+    """Naive and BEE SEC-ratio on the same frames as SaveProof (§7); naive selects rows with
+    `formula` so all three methods drop identical rows."""
+    naive = naive_savings(baseline, reporting, formula)
+    bee = bee_sec_savings(baseline, reporting)
+    return {
+        "naive_savings_pct": naive.savings_pct,
+        "naive_verdict": naive.verdict,
+        "bee_sec_savings_pct": bee.savings_pct,
+        "bee_sec_verdict": bee.verdict,
+    }
+
+
+def run_v5b_window(baseline: pd.DataFrame, reporting: pd.DataFrame, formula: str) -> dict:
+    """run_window plus gate_passed (adequacy, extrapolation and proxy gates all passed; None when
+    insufficient data) and the comparator columns of compare_methods."""
+    row = run_window(baseline, reporting, formula)
+    row["gate_passed"] = row["gate_failures"] == "" if row["status"] == "ok" else None
+    return {**row, **compare_methods(baseline, reporting, formula)}
+
+
+def _count_verified(table: pd.DataFrame, method: str) -> dict:
+    """Like _no_verified, for any method's verdict column."""
+    scored, n_insufficient = _scored(table)
+    n_verified = int((scored[VERDICT_COLUMNS[method]] == "verified").sum())
+    return {
+        "pass": n_verified == 0,
+        "n_verified": n_verified,
+        "n_scored": len(scored),
+        "n_insufficient": n_insufficient,
+    }
+
+
+def _null_runs(table: pd.DataFrame) -> pd.DataFrame:
+    return table[table["injected_saving_pct"] == 0]
+
+
+def b1(results: pd.DataFrame) -> dict:
+    """§8 B1 (hard): SaveProof gives zero "verified" in all null runs (s = 0)."""
+    return _count_verified(_null_runs(results), "saveproof")
+
+
+def b2(results: pd.DataFrame) -> dict:
+    """§8 B2 (hard): SaveProof gives zero "verified" at s in B2_SAVING_PCTS."""
+    return _count_verified(
+        results[results["injected_saving_pct"].isin(B2_SAVING_PCTS)], "saveproof"
+    )
+
+
+def b3(results: pd.DataFrame) -> dict:
+    """§8 B3 (hard): no "verified" in any run where the gate failed (gate_passed not True).
+    Insufficient-data runs are counted, not scored."""
+    return _count_verified(results[~results["gate_passed"].eq(True)], "saveproof")
+
+
+def b4(results: pd.DataFrame) -> dict:
+    """§8 B4 (hard, informativeness): at least one station passes the gate in the fixed-split
+    null run; otherwise V5b is "uninformative", which is not a pass."""
+    fixed = _null_runs(results)
+    fixed = fixed[(fixed["window"] == "fixed") & (fixed["status"] == "ok")]
+    stations = list(fixed.loc[fixed["gate_passed"].eq(True), "station"].unique())
+    return {
+        "pass": bool(stations),
+        "outcome": "informative" if stations else "uninformative",
+        "stations_passing_gate": stations,
+    }
+
+
+def _b5_split(runs: pd.DataFrame) -> dict:
+    if runs.empty:
+        return {"pass": None, "n_runs": 0, "mean_abs_savings_pct": None}
+    mean_abs = {m: float(runs[_SAVINGS_COLUMNS[m]].abs().mean()) for m in METHODS}
+    ours = mean_abs["saveproof"]
+    return {
+        "pass": bool(ours < mean_abs["bee_sec"] and ours < mean_abs["naive"]),
+        "n_runs": len(runs),
+        "mean_abs_savings_pct": mean_abs,
+    }
+
+
+def b5(results: pd.DataFrame) -> dict:
+    """§8 B5 (headline comparison): over null runs whose gate passed, SaveProof's mean
+    |savings_pct| is strictly lower than both SEC-ratio's and naive's, in the fixed split and
+    separately across the rolling windows. pass is False if either split fails, else None if
+    either has no such runs, else True."""
+    runs = _null_runs(results)
+    runs = runs[(runs["status"] == "ok") & runs["gate_passed"].eq(True)]
+    splits = {
+        "fixed": _b5_split(runs[runs["window"] == "fixed"]),
+        "rolling": _b5_split(runs[runs["window"].str.startswith("rolling_")]),
+    }
+    outcomes = [split["pass"] for split in splits.values()]
+    overall = False if False in outcomes else (None if None in outcomes else True)
+    return {**splits, "pass": overall}
+
+
+def _optional_bool(value) -> bool | None:
+    return None if pd.isna(value) else bool(value)
+
+
+def _station_stability(null_runs: pd.DataFrame) -> dict:
+    fixed = null_runs.loc[null_runs["window"] == "fixed", "stability_flagged"]
+    rolling = null_runs.loc[null_runs["window"].str.startswith("rolling_"), "stability_flagged"]
+    return {
+        "fixed_flagged": _optional_bool(fixed.iloc[0]) if len(fixed) else None,
+        "rolling_flagged": int(rolling.eq(True).sum()),
+        "rolling_windows": len(rolling),
+    }
+
+
+def _verified_counts(table: pd.DataFrame, method: str) -> dict:
+    counts = _count_verified(table, method)
+    del counts["pass"]
+    return counts
+
+
+def _verified_rate(table: pd.DataFrame, method: str) -> dict:
+    counts = _verified_counts(table, method)
+    n_scored = counts["n_scored"]
+    return {
+        "verified_rate": counts["n_verified"] / n_scored if n_scored else None,
+        "n_scored": n_scored,
+        "n_insufficient": counts["n_insufficient"],
+    }
+
+
+def b6(results: pd.DataFrame) -> dict:
+    """§8 B6 (reported): comparator false "verified" counts at B6_LOW_SAVING_PCTS; verified rate
+    of every method per station at B6_POWER_SAVING_PCTS (None where nothing scored); per station
+    the share of scored runs passing the gate and the §10 stability flag of its windows."""
+    pct = results["injected_saving_pct"]
+    false_verified = {
+        method: {str(s): _verified_counts(results[pct == s], method) for s in B6_LOW_SAVING_PCTS}
+        for method in ("bee_sec", "naive")
+    }
+    verified_rate, gate_pass_share, stability = {}, {}, {}
+    for station, runs in results.groupby("station", sort=False):
+        runs_pct = runs["injected_saving_pct"]
+        verified_rate[station] = {
+            method: {
+                str(s): _verified_rate(runs[runs_pct == s], method) for s in B6_POWER_SAVING_PCTS
+            }
+            for method in METHODS
+        }
+        scored, n_insufficient = _scored(runs)
+        gate_pass_share[station] = {
+            "share": float(scored["gate_passed"].eq(True).mean()) if len(scored) else None,
+            "n_scored": len(scored),
+            "n_insufficient": n_insufficient,
+        }
+        stability[station] = _station_stability(_null_runs(runs))
+    return {
+        "false_verified": false_verified,
+        "verified_rate": verified_rate,
+        "gate_pass_share": gate_pass_share,
+        "stability": stability,
+    }
