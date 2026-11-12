@@ -1,6 +1,6 @@
 # Validation addendum V5b: real production data (Laayati mine)
 
-Status: **DRAFT.** Binding when both of us sign §12 and it is committed. Until that commit, nobody computes anything on **days 21–32 (2019-01-20 to 2019-01-31)** of any station. The commit hash is recorded in every V5b results file.
+Status: **SIGNED OFF 2026-11-12 by Visva and Rohith. Binding from the commit that adds this signed version.** Until V5b runs, nobody computes anything on **days 21–32 (2019-01-20 to 2019-01-31)** of any station. That commit's hash is recorded in every V5b results file.
 
 What has already been looked at, so it can be disclosed in full:
 - **Whole-file completeness counts.** Rows, missing hours, duplicates, NaN, negatives.
@@ -145,5 +145,5 @@ So Destoning is expected to pass the gate, Screening is borderline (expected to 
 
 | Name | Date | Signature (initials) |
 |---|---|---|
-| Visva | | | visvajith
-| Rohith | | |rohith
+| Visva | 2026-11-12 | visvajith |
+| Rohith | 2026-11-12 | rohith |
