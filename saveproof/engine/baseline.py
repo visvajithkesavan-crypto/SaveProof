@@ -35,6 +35,7 @@ class BaselineModel:
     n_eff: float  # n' from max(rho, 0)
     production_min: float  # over usable rows, in the production_unit; NaN if no production term
     production_max: float
+    production_unit: str  # of the baseline frame, e.g. "t" or "proxy:kvarh_lagging"
     monthly: bool  # True if the baseline periods are longer than one day
     n_excluded: int  # baseline periods dropped by usable_rows
     result: object = field(repr=False, compare=False)  # statsmodels results, used by predict
@@ -159,6 +160,7 @@ def fit_baseline(
         n_eff=stats.n_effective(n, max(rho, 0.0)),
         production_min=float(rows["production"].min()) if has_production else float("nan"),
         production_max=float(rows["production"].max()) if has_production else float("nan"),
+        production_unit=str(rows["production_unit"].iloc[0]),
         monthly=monthly,
         n_excluded=n_excluded,
         result=result,

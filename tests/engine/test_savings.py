@@ -84,22 +84,25 @@ def with_saving(reporting, saving_pct):
 
 
 @pytest.mark.parametrize(
-    ("low", "high", "ashrae_ok", "extrapolated_share", "expected"),
+    ("low", "high", "ashrae_ok", "extrapolated_share", "measured", "expected"),
     [
-        (10.0, 20.0, True, 0.0, "verified"),  # band_low exactly 10 -> verified
-        (9.99, 20.0, True, 0.0, "likely_not_proven"),
-        (-5.0, 10.0, True, 0.0, "likely_not_proven"),  # band_high exactly 10 -> not "below"
-        (-5.0, 9.99, True, 0.0, "below"),
-        (5.0, 15.0, True, 0.0, "likely_not_proven"),  # band straddles 10
-        (15.0, 25.0, False, 0.0, "likely_not_proven"),  # gate failure beats a verified-looking band
-        (-5.0, 5.0, False, 0.0, "likely_not_proven"),  # a bad model can never say "below" either
-        (15.0, 25.0, True, MAX_EXTRAPOLATED_SHARE + 0.01, "likely_not_proven"),
-        (-5.0, 5.0, True, 0.9, "likely_not_proven"),
-        (15.0, 25.0, True, MAX_EXTRAPOLATED_SHARE, "verified"),  # exactly at the limit passes
+        (10.0, 20.0, True, 0.0, True, "verified"),  # band_low exactly 10 -> verified
+        (9.99, 20.0, True, 0.0, True, "likely_not_proven"),
+        (-5.0, 10.0, True, 0.0, True, "likely_not_proven"),  # band_high exactly 10 -> not "below"
+        (-5.0, 9.99, True, 0.0, True, "below"),
+        (5.0, 15.0, True, 0.0, True, "likely_not_proven"),  # band straddles 10
+        (15.0, 25.0, False, 0.0, True, "likely_not_proven"),  # gate failure beats the band
+        (-5.0, 5.0, False, 0.0, True, "likely_not_proven"),  # a bad model can't say "below" either
+        (15.0, 25.0, True, MAX_EXTRAPOLATED_SHARE + 0.01, True, "likely_not_proven"),
+        (-5.0, 5.0, True, 0.9, True, "likely_not_proven"),
+        (15.0, 25.0, True, MAX_EXTRAPOLATED_SHARE, True, "verified"),  # at the limit passes
+        # proxy gate (addendum §9): neither "verified" nor "below" without measured production
+        (15.0, 25.0, True, 0.0, False, "likely_not_proven"),
+        (-5.0, 5.0, True, 0.0, False, "likely_not_proven"),
     ],
 )
-def test_decide_verdict_truth_table(low, high, ashrae_ok, extrapolated_share, expected):
-    assert decide_verdict(low, high, ashrae_ok, extrapolated_share) == expected
+def test_decide_verdict_truth_table(low, high, ashrae_ok, extrapolated_share, measured, expected):
+    assert decide_verdict(low, high, ashrae_ok, extrapolated_share, measured) == expected
 
 
 def test_max_extrapolated_share_is_a_quarter():
@@ -290,6 +293,61 @@ def test_extrapolated_share_at_the_limit_does_not_fail_the_gate():
     result = verify_savings(model, reporting)
     assert result.extrapolated_share == MAX_EXTRAPOLATED_SHARE
     assert result.gate_failures == ()
+
+
+PROXY_FAILURE = "production variable is not measured output (proxy or absent)"
+
+
+def test_proxy_production_unit_cannot_verify_or_rule_out():
+    """Same low-noise plant as test_known_20_percent_saving_is_recovered_and_verified, but the
+    production column is labelled a proxy (addendum §9 (a)): the band alone would verify."""
+    rng = np.random.default_rng(42)
+    baseline = daily_frame(rng, "2024-01-01", 365).assign(production_unit="proxy:kvarh_lagging")
+    reporting = daily_frame(rng, "2025-01-01", 180).assign(production_unit="proxy:kvarh_lagging")
+    model = fit_baseline(baseline, FORMULA)
+    saved = verify_savings(model, with_saving(reporting, 20.0))
+    assert saved.band_low_pct >= 100 * ADEETIE_THRESHOLD
+    assert saved.ashrae_ok  # the adequacy gate is not what fails
+    assert saved.verdict == "likely_not_proven"
+    assert saved.gate_failures == (PROXY_FAILURE,)
+    unchanged = verify_savings(model, reporting)
+    assert unchanged.band_high_pct < 100 * ADEETIE_THRESHOLD  # the band alone would say "below"
+    assert unchanged.verdict == "likely_not_proven"
+
+
+def test_calendar_only_formula_cannot_verify_even_when_adequate():
+    """kWh depends on day type only (production constant), so the calendar model passes the
+    adequacy gate; it still has no production term (addendum §9)."""
+    rng = np.random.default_rng(42)
+    baseline = daily_frame(rng, "2024-01-01", 365, production_t=np.full(365, 200.0))
+    reporting = daily_frame(rng, "2025-01-01", 180, production_t=np.full(180, 200.0))
+    model = fit_baseline(baseline.assign(production=np.nan), CALENDAR_FORMULA)
+    result = verify_savings(model, with_saving(reporting, 20.0).assign(production=np.nan))
+    assert result.ashrae_ok
+    assert result.band_low_pct >= 100 * ADEETIE_THRESHOLD
+    assert result.verdict == "likely_not_proven"
+    assert result.gate_failures == (PROXY_FAILURE,)
+
+
+@pytest.mark.parametrize("unit", ["t", "process_kpi:THE"])
+def test_measured_production_unit_passes_the_proxy_gate(unit):
+    rng = np.random.default_rng(42)
+    baseline = daily_frame(rng, "2024-01-01", 365).assign(production_unit=unit)
+    reporting = daily_frame(rng, "2025-01-01", 180).assign(production_unit=unit)
+    model = fit_baseline(baseline, FORMULA)
+    assert verify_savings(model, with_saving(reporting, 20.0)).verdict == "verified"
+    assert verify_savings(model, reporting).verdict == "below"
+    assert verify_savings(model, reporting).gate_failures == ()
+
+
+def test_proxy_failure_is_listed_with_other_gate_failures():
+    """Noisy calendar-only model: both the CV(RMSE) failure and the proxy failure are reported."""
+    rng = np.random.default_rng(42)
+    baseline = daily_frame(rng, n=365, production_t=rng.uniform(0, 1500, 365))
+    model = fit_baseline(baseline.assign(production=np.nan), CALENDAR_FORMULA)
+    result = verify_savings(model, baseline.iloc[:100].assign(production=np.nan))
+    assert PROXY_FAILURE in result.gate_failures
+    assert any(reason.startswith("CV(RMSE)") for reason in result.gate_failures)
 
 
 # ---------- verify_savings: exclusions and input checks ----------
