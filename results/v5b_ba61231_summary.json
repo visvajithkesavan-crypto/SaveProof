@@ -1,0 +1,345 @@
+{
+  "experiment": "v5b",
+  "label": "real (s = 0); injected (real noise, synthetic saving) (s > 0)",
+  "git_hash": "ba61231",
+  "plan": "docs/validation_plan.md",
+  "plan_commit": "ba61231",
+  "plan_signoff_commit": "920fbcd",
+  "datasets": {
+    "destoning": {
+      "rows": 32,
+      "first_date": "2018-12-31",
+      "last_date": "2019-01-31"
+    },
+    "screening": {
+      "rows": 32,
+      "first_date": "2018-12-31",
+      "last_date": "2019-01-31"
+    },
+    "loading": {
+      "rows": 32,
+      "first_date": "2018-12-31",
+      "last_date": "2019-01-31"
+    }
+  },
+  "labels": {
+    "null runs (s = 0)": "real",
+    "injected runs (s > 0)": "injected (real noise, synthetic saving)"
+  },
+  "addendum": "docs/validation_addendum_v5b.md",
+  "addendum_commit": "d02cce3",
+  "formula": "kwh ~ production",
+  "counts": {
+    "destoning": {
+      "runs": 78,
+      "ok": 78,
+      "insufficient_data": 0
+    },
+    "screening": {
+      "runs": 78,
+      "ok": 78,
+      "insufficient_data": 0
+    },
+    "loading": {
+      "runs": 78,
+      "ok": 78,
+      "insufficient_data": 0
+    }
+  },
+  "criteria": {
+    "B1": {
+      "addendum_wording": "SaveProof gives zero \"verified\" in all null runs (s = 0)",
+      "hard": true,
+      "pass": true,
+      "n_verified": 0,
+      "n_scored": 39,
+      "n_insufficient": 0
+    },
+    "B2": {
+      "addendum_wording": "SaveProof gives zero \"verified\" at s in {5, 7}%",
+      "hard": true,
+      "pass": true,
+      "n_verified": 0,
+      "n_scored": 78,
+      "n_insufficient": 0
+    },
+    "B3": {
+      "addendum_wording": "No \"verified\" in any run where the gate failed",
+      "hard": true,
+      "pass": true,
+      "n_verified": 0,
+      "n_scored": 156,
+      "n_insufficient": 0
+    },
+    "B4": {
+      "addendum_wording": "At least one station passes the gate in the fixed split. If none does, V5b is declared uninformative, which is not a pass",
+      "hard": true,
+      "pass": true,
+      "outcome": "informative",
+      "stations_passing_gate": [
+        "destoning",
+        "screening"
+      ]
+    },
+    "B5": {
+      "addendum_wording": "Over null runs where SaveProof's gate passed, SaveProof's mean |savings_pct| is lower than both SEC-ratio's and naive's, in the fixed split and separately across the rolling windows",
+      "hard": false,
+      "assumption": "nothing changed at the mine in January; this cannot be verified",
+      "fixed": {
+        "pass": true,
+        "n_runs": 2,
+        "mean_abs_savings_pct": {
+          "saveproof": 2.1265261455151876,
+          "bee_sec": 30.267248173738693,
+          "naive": 6.549782253766198
+        }
+      },
+      "rolling": {
+        "pass": true,
+        "n_runs": 11,
+        "mean_abs_savings_pct": {
+          "saveproof": 1.3051707144059534,
+          "bee_sec": 17.40113268043746,
+          "naive": 4.8483060567267575
+        }
+      },
+      "pass": true
+    },
+    "B6": {
+      "addendum_wording": "False \"verified\" counts for SEC-ratio and naive at s in {0, 5, 7}; the \"verified\" rate of all three methods at s in {10, 12, 15}; the share of runs passing the gate, per station; the stability flag of \u00a710",
+      "hard": false,
+      "false_verified": {
+        "bee_sec": {
+          "0": {
+            "n_verified": 13,
+            "n_scored": 39,
+            "n_insufficient": 0
+          },
+          "5": {
+            "n_verified": 16,
+            "n_scored": 39,
+            "n_insufficient": 0
+          },
+          "7": {
+            "n_verified": 18,
+            "n_scored": 39,
+            "n_insufficient": 0
+          }
+        },
+        "naive": {
+          "0": {
+            "n_verified": 10,
+            "n_scored": 39,
+            "n_insufficient": 0
+          },
+          "5": {
+            "n_verified": 18,
+            "n_scored": 39,
+            "n_insufficient": 0
+          },
+          "7": {
+            "n_verified": 21,
+            "n_scored": 39,
+            "n_insufficient": 0
+          }
+        }
+      },
+      "verified_rate": {
+        "destoning": {
+          "saveproof": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.23076923076923078,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          },
+          "bee_sec": {
+            "10": {
+              "verified_rate": 0.07692307692307693,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.07692307692307693,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.15384615384615385,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          },
+          "naive": {
+            "10": {
+              "verified_rate": 0.9230769230769231,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.9230769230769231,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 1.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          }
+        },
+        "screening": {
+          "saveproof": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.3076923076923077,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.3076923076923077,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          },
+          "bee_sec": {
+            "10": {
+              "verified_rate": 0.7692307692307693,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.7692307692307693,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.9230769230769231,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          },
+          "naive": {
+            "10": {
+              "verified_rate": 0.3076923076923077,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.38461538461538464,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.6153846153846154,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          }
+        },
+        "loading": {
+          "saveproof": {
+            "10": {
+              "verified_rate": 0.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 0.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          },
+          "bee_sec": {
+            "10": {
+              "verified_rate": 0.6923076923076923,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 0.8461538461538461,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 1.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          },
+          "naive": {
+            "10": {
+              "verified_rate": 1.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "12": {
+              "verified_rate": 1.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            },
+            "15": {
+              "verified_rate": 1.0,
+              "n_scored": 13,
+              "n_insufficient": 0
+            }
+          }
+        }
+      },
+      "gate_pass_share": {
+        "destoning": {
+          "share": 0.5384615384615384,
+          "n_scored": 78,
+          "n_insufficient": 0
+        },
+        "screening": {
+          "share": 0.46153846153846156,
+          "n_scored": 78,
+          "n_insufficient": 0
+        },
+        "loading": {
+          "share": 0.0,
+          "n_scored": 78,
+          "n_insufficient": 0
+        }
+      },
+      "stability": {
+        "destoning": {
+          "fixed_flagged": false,
+          "rolling_flagged": 1,
+          "rolling_windows": 12
+        },
+        "screening": {
+          "fixed_flagged": false,
+          "rolling_flagged": 0,
+          "rolling_windows": 12
+        },
+        "loading": {
+          "fixed_flagged": true,
+          "rolling_flagged": 6,
+          "rolling_windows": 12
+        }
+      }
+    }
+  },
+  "v5b_pass": true
+}

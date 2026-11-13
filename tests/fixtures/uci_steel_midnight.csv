@@ -1,0 +1,5 @@
+﻿date,Usage_kWh,Lagging_Current_Reactive.Power_kVarh,Leading_Current_Reactive_Power_kVarh,CO2(tCO2),Lagging_Current_Power_Factor,Leading_Current_Power_Factor,NSM,WeekStatus,Day_of_week,Load_Type
+01/01/2018 00:15,1,10,0,0,73.21,100,900,Weekday,Monday,Light_Load
+01/01/2018 23:45,2,20,0,0,67.97,100,85500,Weekday,Monday,Light_Load
+01/01/2018 00:00,3,30,0,0,70.3,100,0,Weekday,Monday,Light_Load
+02/01/2018 00:15,4,40,0,0,71.82,100,900,Weekday,Tuesday,Light_Load

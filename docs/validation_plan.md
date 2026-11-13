@@ -74,7 +74,7 @@ Uniform injection is close to algebra on top of the null result (estimated savin
 
 **Pass criteria**
 - **I1 (hard):** zero `verified` at s ∈ {0, 5, 7}%, for both shapes and every spec.
-- **I2 (hard):** UCI-A and IR-A give zero `verified` at every s, because the adequacy gate holds.
+- **I2 (hard):** any spec that fails the adequacy gate gives zero `verified` at every s (amended 2026-11-10, see §8).
 - **I3 (reported):** the `verified` rate at s = 10, 12, 15% for UCI-B and IR-B, which is the power curve. If it's 0 even at 15%, we say so.
 
 ## 6. Blind simulator test (simulated, India-calibrated)
@@ -130,7 +130,9 @@ On daily blind plants with a planted 0.5%/week degradation after reporting start
 
 | Date | Section | Change | Reason | Agreed by |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-10 | §5 I2 | I2 now reads: "any spec that FAILS the adequacy gate gives zero `verified` at every s" (was: "UCI-A and IR-A give zero `verified` at every s"). Specs that pass the gate are judged by I1 and I3. | A baseline-only fit (Irish first 60%, no reporting data examined) gives IR-A CV(RMSE) 0.218, below the 0.25 gate, so the §3 expectation that IR-A fails adequacy may not hold. I2 was meant to test that the gate blocks inadequate models, not to penalise a correct verification by an adequate calendar model. Made before any experiment ran. | VK; Rohith |
+| 2026-11-12 | §2, new V5b | Proxy gate added to the verdict rule: "verified" requires a `production` term with measured production (production_unit not `proxy:`); otherwise `likely_not_proven`. New separate experiment V5b on the Laayati mine data, fully specified in `docs/validation_addendum_v5b.md`. V5 stays recorded as FAILED and is not re-scored. | V5 showed that a proxy production variable can produce false verifications (addendum §2). ADEETIE requires measured production. Both changes are made before V5b and before the blind test (R4) run. | VK; Rohith |
+| 2026-11-12 | V5b addendum §10 (clarification, no change) | "Newey–West (HAC) standard errors" is implemented in its textbook form: Bartlett kernel, lag as in §10, no small-sample correction, normal reference distribution (statsmodels `cov_type="HAC"`, `use_correction=False`, `use_t=False`). | The addendum did not state these conventions; this records the reading used, fixed before V5b runs. The stability flag is reported, not a verdict gate. | VK; Rohith |
 
 ## 9. Sign-off
 

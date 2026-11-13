@@ -1,0 +1,58 @@
+{
+  "experiment": "v5_stability_posthoc",
+  "label": "post-hoc secondary analysis, not pre-registered",
+  "git_hash": "1283791",
+  "plan": "docs/validation_plan.md",
+  "plan_commit": "ba61231",
+  "plan_signoff_commit": "920fbcd",
+  "datasets": {
+    "uci_steel": {
+      "rows": 365,
+      "first_date": "2018-01-01",
+      "last_date": "2018-12-31"
+    },
+    "irish_mi_a": {
+      "rows": 222,
+      "first_date": "2025-05-23",
+      "last_date": "2025-12-31"
+    }
+  },
+  "addendum": "docs/validation_addendum_v5b.md",
+  "addendum_commit": "d02cce3",
+  "method": "addendum \u00a710: residuals in time order regressed on days since baseline start, Newey-West (Bartlett, lag floor(4 (n/100)^(2/9)), no small-sample correction, normal), two-sided",
+  "thresholds": {
+    "p_max": 0.05,
+    "drift_share_min": 0.05
+  },
+  "role": "reported only; not evidence for or against V5, which stays FAILED (addendum \u00a71)",
+  "per_spec": {
+    "UCI-A": {
+      "windows": 15,
+      "not_fitted": 0,
+      "fixed_flagged": true,
+      "rolling_flagged": 6,
+      "rolling_windows": 14
+    },
+    "UCI-B": {
+      "windows": 15,
+      "not_fitted": 0,
+      "fixed_flagged": true,
+      "rolling_flagged": 14,
+      "rolling_windows": 14
+    },
+    "IR-A": {
+      "windows": 14,
+      "not_fitted": 0,
+      "fixed_flagged": true,
+      "rolling_flagged": 10,
+      "rolling_windows": 13
+    },
+    "IR-B": {
+      "windows": 14,
+      "not_fitted": 0,
+      "fixed_flagged": true,
+      "rolling_flagged": 6,
+      "rolling_windows": 13
+    }
+  }
+}

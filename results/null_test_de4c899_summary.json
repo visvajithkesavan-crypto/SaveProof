@@ -1,0 +1,87 @@
+{
+  "experiment": "null_test",
+  "label": "real",
+  "git_hash": "de4c899",
+  "plan": "docs/validation_plan.md",
+  "plan_commit": "74bb2e9",
+  "plan_signoff_commit": "920fbcd",
+  "datasets": {
+    "uci_steel": {
+      "rows": 365,
+      "first_date": "2018-01-01",
+      "last_date": "2018-12-31"
+    },
+    "irish_mi_a": {
+      "rows": 222,
+      "first_date": "2025-05-23",
+      "last_date": "2025-12-31"
+    }
+  },
+  "counts": {
+    "UCI-A": {
+      "runs": 15,
+      "ok": 15,
+      "insufficient_data": 0
+    },
+    "UCI-B": {
+      "runs": 15,
+      "ok": 15,
+      "insufficient_data": 0
+    },
+    "IR-A": {
+      "runs": 14,
+      "ok": 14,
+      "insufficient_data": 0
+    },
+    "IR-B": {
+      "runs": 14,
+      "ok": 14,
+      "insufficient_data": 0
+    }
+  },
+  "criteria": {
+    "N1": {
+      "plan_wording": "zero verified verdicts in every null window for every spec",
+      "hard": true,
+      "pass": false,
+      "n_verified": 8,
+      "n_scored": 58,
+      "n_insufficient": 0
+    },
+    "N2": {
+      "plan_wording": "the share of windows whose band contains 0, per spec; an adequate spec (UCI-B or IR-B) below 50% goes on the results slide as a limitation",
+      "hard": false,
+      "per_spec": {
+        "UCI-A": {
+          "share_contains_zero": 0.6,
+          "n_scored": 15,
+          "n_insufficient": 0,
+          "flagged": false
+        },
+        "UCI-B": {
+          "share_contains_zero": 0.13333333333333333,
+          "n_scored": 15,
+          "n_insufficient": 0,
+          "flagged": true
+        },
+        "IR-A": {
+          "share_contains_zero": 0.0,
+          "n_scored": 14,
+          "n_insufficient": 0,
+          "flagged": false
+        },
+        "IR-B": {
+          "share_contains_zero": 0.35714285714285715,
+          "n_scored": 14,
+          "n_insufficient": 0,
+          "flagged": true
+        }
+      }
+    },
+    "N3": {
+      "plan_wording": "CV(RMSE), FSU at 10%, R2, NMBE, lag-1 rho and n' for every window",
+      "hard": false,
+      "reported_in": "CSV columns cvrmse, fsu, r2, nmbe, rho, n_eff"
+    }
+  }
+}
