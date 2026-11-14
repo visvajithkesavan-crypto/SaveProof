@@ -1,7 +1,9 @@
-"""Plumbing shared by the null-test and injected-saving scripts: loading the real datasets with the
-R1 loaders, the windows of docs/validation_plan.md §4, git provenance and the results/ files.
+"""Plumbing shared by the experiment scripts: loading the real datasets with the R1 loaders, the
+windows of docs/validation_plan.md §4, simulated plant files (§6), git provenance and the results/
+files.
 """
 
+import dataclasses
 import json
 import subprocess
 from pathlib import Path
@@ -9,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 from matplotlib.figure import Figure
 
+from saveproof.contract import PLANT_DATE_FIELDS, PlantMeta, validate
 from saveproof.ingest.irish import load_irish
 from saveproof.ingest.uci import load_uci_steel
 from saveproof.validation import (
@@ -21,7 +24,9 @@ from saveproof.validation import (
 
 REPO = Path(__file__).resolve().parents[1]
 RESULTS_DIR = REPO / "results"
+PROCESSED_DIR = REPO / "data" / "processed"
 PLAN_PATH = "docs/validation_plan.md"
+DATE_FORMAT = "%Y-%m-%d"  # plant-local dates in plant files
 
 
 def load_datasets() -> dict[str, pd.DataFrame]:
@@ -40,6 +45,32 @@ def all_windows(frames: dict[str, pd.DataFrame]) -> dict[str, list[Window]]:
         dataset: [fixed_split(df, dataset), *rolling_windows(df, *ROLLING_DAYS[dataset])]
         for dataset, df in frames.items()
     }
+
+
+def write_plant(directory: Path, df: pd.DataFrame, meta: PlantMeta) -> None:
+    """Write <plant_id>.csv (contract table) and <plant_id>_meta.json (PlantMeta only)."""
+    df.to_csv(directory / f"{meta.plant_id}.csv", index=False, date_format=DATE_FORMAT)
+    fields = dataclasses.asdict(meta)
+    for name in PLANT_DATE_FIELDS:
+        fields[name] = None if fields[name] is None else fields[name].strftime(DATE_FORMAT)
+    text = json.dumps(fields, indent=2) + "\n"
+    (directory / f"{meta.plant_id}_meta.json").write_text(text, encoding="utf-8")
+
+
+def read_plant_set(directory: Path) -> list[tuple[pd.DataFrame, PlantMeta]]:
+    """Validated contract table and PlantMeta of every plant in directory, by plant_id."""
+    plants = []
+    for meta_path in sorted(directory.glob("*_meta.json")):
+        fields = json.loads(meta_path.read_text(encoding="utf-8"))
+        for name in PLANT_DATE_FIELDS:
+            if fields[name] is not None:
+                fields[name] = pd.to_datetime(fields[name], format=DATE_FORMAT)
+        meta = PlantMeta(**fields)
+        df = pd.read_csv(directory / f"{meta.plant_id}.csv", dtype={"event": object})
+        for column in ("period_start", "period_end"):
+            df[column] = pd.to_datetime(df[column], format=DATE_FORMAT)
+        plants.append((validate(df), meta))
+    return plants
 
 
 def window_columns(spec: str, window: Window) -> dict:

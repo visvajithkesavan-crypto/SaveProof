@@ -53,13 +53,13 @@ Result types (frozen dataclasses in the engine module that creates them):
 |---|---|---|---|---|---|
 | R1 | 9–10 Nov | `ingest/uci.py`, `ingest/irish.py` | file path | `load_uci_steel(path) -> df` (daily; `production` = daily lagging kVArh, `production_unit="proxy:kvarh_lagging"`; NOT `Load_Type`, which is a tariff clock); `load_irish(path) -> df` (grid incomer, daily in Europe/Dublin dates rebuilt from 15-min; `production` = same-day PV kWh from mi_b, `production_unit="proxy:pv_kwh"`) | outputs pass `validate()`; UCI midnight-row trap handled (96 intervals per day) |
 | R2 | 10 Nov | `quality.py` | contract df | `score(df) -> QualityReport` (total, completeness, continuity, plausibility, consistency, flags) | gaps and negatives in a fixture are flagged; Irish reliability flags agree |
-| R3 | 11–12 Nov | `ingest/simulator.py` | `SimParams`, `rng` | `simulate_plant(params, rng) -> tuple[df, PlantMeta, SimTruth]` | zero saving → engine reports ≈ 0; known saving → recovered within band |
-| R4 | 12–13 Nov | `experiments/make_blind_set.py`, `experiments/score_blind.py` | simulator | ≥ 200 plants in `data/processed/blind/`, truth in `data/blind_truth.csv` (engine code never reads it); scoring table in `results/` | scoring script reproduces a hand-checked plant |
+| R3 | 11–12 Nov | `ingest/simulator.py` | `SimParams`, `rng` | `simulate_plant(params, rng, plant_id="sim_plant") -> tuple[df, PlantMeta, SimTruth]`; `sample_params(stratum, granularity, sector, rng) -> SimParams` | zero saving → engine reports ≈ 0; known saving → recovered within band |
+| R4 | 12–13 Nov | `experiments/make_plant_set.py`, `experiments/run_blind_verdicts.py`, `experiments/score_blind.py` | simulator | ≥ 200 plants in `data/processed/blind/`, truth in `data/blind_truth.csv` (engine code never reads it); verdicts and scoring table in `results/` | scoring script reproduces a hand-checked plant |
 | R5 | 14–16 Nov | `report/charts.py`, `streamlit_app.py` | result dataclasses | `savings_chart(...) -> Figure`, 5-page app (Data, Baseline, Savings, Drift, Report) | app opens on demo defaults with no errors |
 | R6 | 17 Nov | deploy + screenshots | app | live link, full-HD screenshots | link works logged out |
 
-`SimParams`: sector, days, base_load_kwh, variable_sec_kwh_per_unit, production_mean, production_swing_pct, ar1_phi, noise_cv, retrofit_day, saving_base_pct, saving_variable_pct, shutdown_days. Every default cites its source (BEE DPR / UNIDO page).
-`SimTruth`: true_savings_kwh, true_savings_pct.
+`SimParams` (frozen, keyword-only): sector, granularity ("daily" | "monthly"), stratum ("S1".."S4"), baseline_days=365, reporting_days=365, fixed_share, mean_kwh_per_day, production_mean (t/day), production_change_pct, ar1_phi, noise_cv, saving_base_pct, saving_variable_pct, shutdown_days, misspec ("none" | "product_mix" | "nonlinear"). Ranges are named constants in `simulator.py` with their source, or marked TODO(verify) where there is none.
+`SimTruth`: true_savings_kwh, true_savings_pct, against the counterfactual (reporting period without the retrofit, at actual production and mix, same noise draws).
 
 ## Both
 - 17–18 Nov: architecture diagram, form answers, deck with real numbers only.
