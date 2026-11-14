@@ -13,7 +13,7 @@ import pytest
 import experiments.common as common
 from experiments import make_plant_set, run_blind_verdicts, score_blind
 from saveproof.contract import PlantMeta, validate
-from saveproof.validation import TRUTH_COLUMNS
+from saveproof.validation import TRUTH_COLUMNS, window_stability
 
 SECRET_SEED = 987654321
 FORMULAS = {
@@ -120,7 +120,15 @@ def test_run_blind_verdicts_never_references_the_truth_file():
     assert "_truth" not in inspect.getsource(run_blind_verdicts)
 
 
-def test_unset_formula_raises(data_dir):
+def test_formulas_are_the_signed_section_8_values():
+    """docs/validation_plan.md §8, 2026-11-14 (§6 formulas), fixed on the dev set."""
+    assert run_blind_verdicts.DAILY_FORMULA == "kwh ~ production + C(day_type)"
+    assert run_blind_verdicts.MONTHLY_FORMULA == "kwh ~ production + operating_days"
+
+
+def test_unset_formula_raises(data_dir, monkeypatch):
+    monkeypatch.setattr(run_blind_verdicts, "DAILY_FORMULA", None)
+    monkeypatch.setattr(run_blind_verdicts, "MONTHLY_FORMULA", None)
     make_plant_set.main(["--name", "unit", "--seed", "3", "--n", "2"])
     with pytest.raises(ValueError, match="validation_plan.md §6"):
         run_blind_verdicts.run(data_dir / "processed" / "unit")
@@ -143,6 +151,31 @@ def test_verdicts_have_one_row_per_plant_for_all_three_methods(verdicts):
         rows = verdicts[verdicts["granularity"] == granularity]
         assert len(rows) == 4 and set(rows["formula"]) == {formula}
     assert set(verdicts["status"]) == {"ok"}
+
+
+def test_every_plant_row_reports_baseline_stability(data_dir, formulas):
+    """stability_* columns are window_stability of that plant's baseline (plan §8, 2026-11-14)."""
+    make_plant_set.main(["--name", "unit", "--seed", "3", "--n", "8"])
+    plants = common.read_plant_set(data_dir / "processed" / "unit")
+    table = run_blind_verdicts.run(data_dir / "processed" / "unit")
+    keys = (
+        "stability_slope_kwh_per_day",
+        "stability_p_value",
+        "stability_drift_share",
+        "stability_flagged",
+    )
+    assert set(keys) <= set(table.columns)
+    for (df, meta), (_, row) in zip(plants, table.iterrows(), strict=True):
+        baseline = df[df["period_start"].between(meta.baseline_start, meta.baseline_end)]
+        expected = window_stability(baseline, row["formula"])
+        for key, value in expected.items():
+            got = row[key]
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                assert pd.isna(got)
+            elif isinstance(value, float):
+                assert got == pytest.approx(value, rel=1e-12)
+            else:
+                assert got == value
 
 
 def test_main_names_the_verdicts_file_with_the_git_hash(data_dir, formulas, tmp_path, monkeypatch):

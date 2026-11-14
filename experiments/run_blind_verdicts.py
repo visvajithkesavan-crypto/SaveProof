@@ -15,12 +15,13 @@ import pandas as pd
 from experiments.common import PROCESSED_DIR, RESULTS_DIR, current_git_hash, read_plant_set
 from saveproof.contract import PlantMeta
 from saveproof.engine.baseline import add_calendar_terms, is_monthly
-from saveproof.validation import compare_methods, run_window
+from saveproof.validation import compare_methods, run_window, window_stability
 
-# Model formulas for the blind run. Not yet fixed: each is chosen on the dev set and written into
-# docs/validation_plan.md §6 before the blind run (docs/build_plan.md, V2 note). None raises.
-DAILY_FORMULA: str | None = None
-MONTHLY_FORMULA: str | None = None
+# Chosen on the dev set (seed 1, 50 plants) and fixed before the blind set exists.
+# docs/validation_plan.md §8, 2026-11-14 (§6 formulas).
+DAILY_FORMULA: str | None = "kwh ~ production + C(day_type)"
+# docs/validation_plan.md §8, 2026-11-14 (§6 formulas).
+MONTHLY_FORMULA: str | None = "kwh ~ production + operating_days"
 LABEL = "simulated"
 
 
@@ -35,7 +36,7 @@ def formula_for(granularity: str) -> str:
 
 
 def plant_row(df: pd.DataFrame, meta: PlantMeta) -> dict:
-    """SaveProof (run_window: verdict, band, gates) and both comparators on one plant."""
+    """SaveProof, both comparators, and the baseline stability flag on one plant."""
     granularity = "monthly" if is_monthly(add_calendar_terms(df)) else "daily"
     formula = formula_for(granularity)
     baseline = df[df["period_start"].between(meta.baseline_start, meta.baseline_end)]
@@ -47,6 +48,7 @@ def plant_row(df: pd.DataFrame, meta: PlantMeta) -> dict:
         "formula": formula,
         **run_window(baseline, reporting, formula),
         **compare_methods(baseline, reporting, formula),
+        **window_stability(baseline, formula),
     }
 
 

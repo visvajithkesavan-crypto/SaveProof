@@ -177,21 +177,60 @@ def test_p_value_matches_a_hand_computed_newey_west_test():
     )
 
 
-def test_monthly_baseline_raises():
-    """D = |slope| x (n - 1) assumes one period per day (addendum §10)."""
-    starts = pd.date_range("2022-01-01", periods=24, freq="MS")
-    rng = np.random.default_rng(42)
-    production_t = rng.uniform(2000, 6000, 24)
-    monthly = daily_frame(rng, n=24).assign(
-        period_start=starts,
-        period_end=starts + pd.offsets.MonthEnd(0),
-        production=production_t,
-        kwh=500 + 0.4 * production_t + rng.normal(0, 20, 24),
-        operating_days=20.0,
-        source="utility_bill",
+def monthly_frame(rng, n=24, trend_kwh_per_day=0.0, noise_kwh=20.0):
+    """Monthly bills: kwh = 500 + 0.4*production + trend*(days since first start) + noise.
+
+    24 month-starts from 2022-01-01 span 699 days, so a 0.2 kWh/day trend is about
+    0.2 * 699 / 2100 ~ 0.07 of mean kWh (above 0.05) but only 0.2 * 23 / 2100 ~ 0.002
+    if D wrongly uses (n - 1). docs/validation_plan.md §8, 2026-11-14.
+    """
+    starts = pd.date_range("2022-01-01", periods=n, freq="MS")
+    production_t = rng.uniform(2000, 6000, n)
+    days = (starts - starts[0]).days.to_numpy()
+    return pd.DataFrame(
+        {
+            "period_start": starts,
+            "period_end": starts + pd.offsets.MonthEnd(0),
+            "kwh": 500
+            + 0.4 * production_t
+            + trend_kwh_per_day * days
+            + rng.normal(0, noise_kwh, n),
+            "production": production_t,
+            "production_unit": "t",
+            "operating_days": 20.0,
+            "source": "utility_bill",
+            "dataset": "test",
+            "coverage_pct": 100.0,
+            "event": pd.Series([None] * n, dtype=object),
+        }
     )
-    with pytest.raises(ValueError, match="daily"):
-        baseline_stability(fit_baseline(monthly, FORMULA))
+
+
+def test_monthly_baseline_without_trend_is_not_flagged():
+    """Noise of 20 kWh: slope SE ~ 20 / 990 ~ 0.02 kWh/day, so D stays well under 0.05."""
+    result = stability_of(monthly_frame(np.random.default_rng(42)))
+    assert result.drift_share < STABILITY_DRIFT_SHARE_MIN
+    assert result.flagged is False
+
+
+def test_monthly_baseline_with_planted_trend_is_flagged():
+    """D = |slope| x (t_last - t_first) / mean kWh per period, not |slope| x (n - 1).
+
+    Slope SE ~ 0.02 kWh/day, so abs=0.08 is about 4 standard errors.
+    """
+    frame = monthly_frame(np.random.default_rng(42), trend_kwh_per_day=0.2)
+    result = stability_of(frame)
+    span_days = (frame["period_start"].iloc[-1] - frame["period_start"].iloc[0]).days
+    assert result.slope_kwh_per_day == pytest.approx(0.2, abs=0.08)
+    assert result.drift_share == pytest.approx(
+        abs(result.slope_kwh_per_day) * span_days / frame["kwh"].mean(), rel=1e-12
+    )
+    assert result.drift_share >= STABILITY_DRIFT_SHARE_MIN
+    assert result.drift_share != pytest.approx(
+        abs(result.slope_kwh_per_day) * (len(frame) - 1) / frame["kwh"].mean(), rel=1e-6
+    )
+    assert result.p_value < STABILITY_P_MAX
+    assert result.flagged is True
 
 
 def test_result_is_frozen_and_json_serialisable():
