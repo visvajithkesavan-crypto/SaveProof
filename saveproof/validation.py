@@ -1,7 +1,8 @@
 """Validation experiments as pure functions: model specs, null-test windows, injected savings and
 the pre-registered pass criteria. The authority is docs/validation_plan.md §3 (specs), §4 (null
 test), §5 (injected saving) and §8 (I2 amendment); every constant here cites it. The V5b section
-at the end follows docs/validation_addendum_v5b.md and leaves the V5 functions unchanged.
+follows docs/validation_addendum_v5b.md and leaves the V5 functions unchanged. The R4 section at
+the end scores the blind simulator test (§6: metrics and criteria P1-P5).
 
 Frames are daily contract tables with plant-local dates; windows are selected on period_start
 (the day itself, since daily rows have period_start == period_end). No file I/O: the scripts in
@@ -10,8 +11,10 @@ experiments/ load data and write results.
 
 from dataclasses import dataclass, fields
 
+import numpy as np
 import pandas as pd
 
+from saveproof.config import ADEETIE_THRESHOLD
 from saveproof.contract import validate
 from saveproof.engine.baseline import (
     InsufficientDataError,
@@ -479,3 +482,188 @@ def b6(results: pd.DataFrame) -> dict:
         "gate_pass_share": gate_pass_share,
         "stability": stability,
     }
+
+
+# ---------- R4: blind simulator test (docs/validation_plan.md §2 wrong side, §6) ----------
+
+BLIND_METHODS = ("saveproof", "naive", "bee_sec")
+# Verdicts file (experiments/run_blind_verdicts.py) columns per method: (savings_pct, verdict).
+_BLIND_COLUMNS = {
+    "saveproof": ("savings_pct", "verdict"),
+    "naive": ("naive_savings_pct", "naive_verdict"),
+    "bee_sec": ("bee_sec_savings_pct", "bee_sec_verdict"),
+}
+TRUTH_COLUMNS = ("plant_id", "true_savings_pct", "stratum", "granularity", "sector",
+                 "fixed_share", "production_change_pct")  # fmt: skip
+# §6: "S4 is reported separately with only P2 applied", so P1 and P3-P5 are judged on S1-S3.
+CORE_STRATA = ("S1", "S2", "S3")
+SWING_STRATA = ("S2", "S3")  # §6 P1, P4: production up or down
+SEC_VALID_STRATUM = "S1"  # §6 P4: stable production, where SEC-ratio is valid
+P2_MAX_FALSE_VERIFIED_RATE = 0.05  # §6 P2, fraction of plants with true saving < 10%
+P3_COVERAGE_RANGE = (0.85, 0.97)  # §6 P3, inclusive, fraction of non-abstained plants
+P4_S1_MARGIN_PP = 1.0  # §6 P4, percentage points
+P5_MAX_ABS_BIAS_PP = 1.0  # §6 P5, percentage points
+# Fixed-share bands of the reported breakdown (not a criterion): <0.2, 0.2-0.3, >0.3.
+FIXED_SHARE_BAND_EDGES = (0.2, 0.3)
+_BREAKDOWN_GROUPS = ("stratum", "granularity", "fixed_share_band")
+
+
+def _fixed_share_band(fixed_share: pd.Series) -> pd.Series:
+    low, high = FIXED_SHARE_BAND_EDGES
+    labels = np.select(
+        [fixed_share < low, fixed_share <= high], [f"<{low}", f"{low}-{high}"], f">{high}"
+    )
+    return pd.Series(labels, index=fixed_share.index)
+
+
+def _check_same_plants(verdicts: pd.DataFrame, truth: pd.DataFrame) -> None:
+    for label, frame in (("verdicts", verdicts), ("truth", truth)):
+        duplicated = frame["plant_id"][frame["plant_id"].duplicated()]
+        if len(duplicated):
+            raise ValueError(f"{label}: plant_id {duplicated.iloc[0]!r} appears twice")
+    no_truth = sorted(set(verdicts["plant_id"]) - set(truth["plant_id"]))
+    no_verdict = sorted(set(truth["plant_id"]) - set(verdicts["plant_id"]))
+    if no_truth or no_verdict:
+        raise ValueError(
+            f"plants without truth: {no_truth[:5]}; without verdicts: {no_verdict[:5]}"
+        )
+
+
+def blind_scoring_table(verdicts: pd.DataFrame, truth: pd.DataFrame) -> pd.DataFrame:
+    """One row per plant and method: the truth columns, fixed_share_band, savings_pct (percent),
+    verdict and SaveProof's band (NaN for comparators). A SaveProof run with status other than
+    "ok" gets verdict "insufficient_data" (an abstention). Raises if the plant sets differ."""
+    _check_same_plants(verdicts, truth)
+    truth = truth[list(TRUTH_COLUMNS)].assign(
+        fixed_share_band=_fixed_share_band(truth["fixed_share"])
+    )
+    frames = []
+    for method in BLIND_METHODS:
+        savings_column, verdict_column = _BLIND_COLUMNS[method]
+        part = pd.DataFrame(
+            {
+                "plant_id": verdicts["plant_id"],
+                "method": method,
+                "savings_pct": verdicts[savings_column].astype(float),
+                "verdict": verdicts[verdict_column],
+                "band_low_pct": np.nan,
+                "band_high_pct": np.nan,
+            }
+        )
+        if method == "saveproof":
+            part["band_low_pct"] = verdicts["band_low_pct"].astype(float)
+            part["band_high_pct"] = verdicts["band_high_pct"].astype(float)
+            part["verdict"] = part["verdict"].where(verdicts["status"] == "ok", "insufficient_data")
+        frames.append(part)
+    return pd.concat(frames, ignore_index=True).merge(truth, on="plant_id", how="left")
+
+
+def _mean(values: pd.Series) -> float | None:
+    return float(values.mean()) if len(values) else None
+
+
+def blind_metrics(rows: pd.DataFrame) -> dict:
+    """§6 metrics for one method's plants (rows of blind_scoring_table). Errors in percentage
+    points over plants with an estimate; rates over all plants. Wrong side (§2): "verified" with
+    true < 10% or "below" with true >= 10%; anything else is an abstention. Band coverage over
+    decided ("verified"/"below") plants with a band; None for comparators."""
+    threshold_pct = 100 * ADEETIE_THRESHOLD
+    true_pct = rows["true_savings_pct"]
+    error_pp = (rows["savings_pct"] - true_pct).dropna()
+    verified = rows["verdict"].eq("verified")
+    below = rows["verdict"].eq("below")
+    decided = verified | below
+    true_below = true_pct < threshold_pct
+    wrong_side = (verified & true_below) | (below & ~true_below)
+    covered = (rows["band_low_pct"] <= true_pct) & (true_pct <= rows["band_high_pct"])
+    with_band = decided & rows["band_low_pct"].notna()
+    return {
+        "n": len(rows),
+        "n_estimated": len(error_pp),
+        "mae_pp": _mean(error_pp.abs()),
+        "bias_pp": _mean(error_pp),
+        "wrong_side_rate": _mean(wrong_side),
+        "abstention_rate": _mean(~decided),
+        "n_true_below_10": int(true_below.sum()),
+        "n_false_verified": int((verified & true_below).sum()),
+        "false_verified_rate": _mean(verified[true_below]),
+        "n_decided": int(decided.sum()),
+        "band_coverage": _mean(covered[with_band]),
+    }
+
+
+def blind_metrics_table(long: pd.DataFrame) -> pd.DataFrame:
+    """blind_metrics per method: overall, then by stratum, granularity and fixed-share band."""
+    rows = []
+    for method, by_method in long.groupby("method", sort=False):
+        rows.append({"method": method, "group": "overall", "value": "all",
+                     **blind_metrics(by_method)})  # fmt: skip
+        for group in _BREAKDOWN_GROUPS:
+            for value, part in by_method.groupby(group, sort=True):
+                rows.append({"method": method, "group": group, "value": value,
+                             **blind_metrics(part)})  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def _plants(long: pd.DataFrame, method: str, strata: tuple[str, ...]) -> pd.DataFrame:
+    return long[(long["method"] == method) & long["stratum"].isin(strata)]
+
+
+def _metric(long: pd.DataFrame, method: str, strata: tuple[str, ...], key: str) -> float | None:
+    return blind_metrics(_plants(long, method, strata))[key]
+
+
+def p1(long: pd.DataFrame) -> dict:
+    """§6 P1 (headline): SaveProof's wrong-side rate is strictly lower than naive's and
+    SEC-ratio's, over S1-S3 and within S2+S3. pass is None if a group has no plants."""
+    out = {
+        label: {m: _metric(long, m, strata, "wrong_side_rate") for m in BLIND_METHODS}
+        for label, strata in (("S1-S3", CORE_STRATA), ("S2+S3", SWING_STRATA))
+    }
+    if any(rate is None for rates in out.values() for rate in rates.values()):
+        return {**out, "pass": None}
+    ok = all(r["saveproof"] < r["naive"] and r["saveproof"] < r["bee_sec"] for r in out.values())
+    return {**out, "pass": ok}
+
+
+def p2(long: pd.DataFrame) -> dict:
+    """§6 P2 (hard): SaveProof's false-verified rate ("verified" among plants with true saving
+    < 10%) is at most P2_MAX_FALSE_VERIFIED_RATE, in S1-S3 and separately in S4."""
+    out = {}
+    for label, strata in (("S1-S3", CORE_STRATA), ("S4", ("S4",))):
+        m = blind_metrics(_plants(long, "saveproof", strata))
+        out[label] = {k: m[k] for k in ("false_verified_rate", "n_false_verified",
+                                        "n_true_below_10")}  # fmt: skip
+    rates = [group["false_verified_rate"] for group in out.values()]
+    ok = None if None in rates else all(r <= P2_MAX_FALSE_VERIFIED_RATE for r in rates)
+    return {**out, "pass": ok}
+
+
+def p3(long: pd.DataFrame) -> dict:
+    """§6 P3: SaveProof's band coverage over non-abstained S1-S3 plants lies within
+    P3_COVERAGE_RANGE (inclusive). pass is None if no plant was decided."""
+    m = blind_metrics(_plants(long, "saveproof", CORE_STRATA))
+    coverage = m["band_coverage"]
+    low, high = P3_COVERAGE_RANGE
+    ok = None if coverage is None else bool(low <= coverage <= high)
+    return {"band_coverage": coverage, "n_decided": m["n_decided"], "pass": ok}
+
+
+def p4(long: pd.DataFrame) -> dict:
+    """§6 P4: SaveProof's MAE is strictly lower than SEC-ratio's in S2+S3, and at most
+    P4_S1_MARGIN_PP higher in S1."""
+    swing = {m: _metric(long, m, SWING_STRATA, "mae_pp") for m in ("saveproof", "bee_sec")}
+    stable = {m: _metric(long, m, (SEC_VALID_STRATUM,), "mae_pp") for m in ("saveproof", "bee_sec")}
+    out = {"S2+S3_mae_pp": swing, "S1_mae_pp": stable}
+    if None in (*swing.values(), *stable.values()):
+        return {**out, "pass": None}
+    ok = swing["saveproof"] < swing["bee_sec"] and (
+        stable["saveproof"] <= stable["bee_sec"] + P4_S1_MARGIN_PP
+    )
+    return {**out, "pass": ok}
+
+
+def p5(long: pd.DataFrame) -> dict:
+    """§6 P5: |SaveProof bias| < P5_MAX_ABS_BIAS_PP over S1-S3 (S4 excluded)."""
+    bias = _metric(long, "saveproof", CORE_STRATA, "bias_pp")
+    return {"bias_pp": bias, "pass": None if bias is None else abs(bias) < P5_MAX_ABS_BIAS_PP}
