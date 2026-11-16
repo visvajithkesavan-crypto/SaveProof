@@ -1,0 +1,71 @@
+{
+  "label": "simulated",
+  "plan": "docs/validation_plan.md",
+  "readings": [
+    "S4 gets only P2 (\u00a76), so P1 and P3-P5 use S1-S3; P1 'overall' means S1-S3",
+    "P2 is judged in S1-S3 and separately in S4; its rate is over plants with true saving < 10%",
+    "Wrong-side, abstention and false-verified rates count insufficient-data runs as abstentions"
+  ],
+  "criteria": {
+    "P1": {
+      "plan_wording": "SaveProof's wrong-side rate is lower than both naive and SEC-ratio, overall and within S2 + S3",
+      "hard": false,
+      "S1-S3": {
+        "saveproof": 0.0,
+        "naive": 0.2978723404255319,
+        "bee_sec": 0.18617021276595744
+      },
+      "S2+S3": {
+        "saveproof": 0.0,
+        "naive": 0.384,
+        "bee_sec": 0.272
+      },
+      "pass": true
+    },
+    "P2": {
+      "plan_wording": "False-verified rate (\"verified\" with true saving < 10%) <= 5%",
+      "hard": true,
+      "S1-S3": {
+        "false_verified_rate": 0.0,
+        "n_false_verified": 0,
+        "n_true_below_10": 103
+      },
+      "S4": {
+        "false_verified_rate": 0.10714285714285714,
+        "n_false_verified": 3,
+        "n_true_below_10": 28
+      },
+      "pass": false
+    },
+    "P3": {
+      "plan_wording": "Empirical 90% band coverage is within [0.85, 0.97] over the non-abstained plants",
+      "hard": false,
+      "band_coverage": 0.8380281690140845,
+      "n_decided": 142,
+      "pass": false
+    },
+    "P4": {
+      "plan_wording": "SaveProof's MAE is lower than SEC-ratio's in S2 + S3, and no more than 1 pp worse than SEC-ratio in S1",
+      "hard": false,
+      "S2+S3_mae_pp": {
+        "saveproof": 1.0404332758014967,
+        "bee_sec": 5.585638049572341
+      },
+      "S1_mae_pp": {
+        "saveproof": 0.6332968313329649,
+        "bee_sec": 1.3051304822811263
+      },
+      "pass": true
+    },
+    "P5": {
+      "plan_wording": "|bias| < 1 pp overall, excluding S4",
+      "hard": false,
+      "bias_pp": 0.06914041750335402,
+      "pass": true
+    }
+  },
+  "verdicts_file": "blind_verdicts_facbac0.csv",
+  "truth_file": "blind_truth.csv",
+  "scoring_git_hash": "facbac0",
+  "plan_commit": "cc2dca9"
+}
