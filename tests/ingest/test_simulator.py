@@ -97,10 +97,17 @@ def test_fixed_share_is_recovered_by_the_fitted_intercept_on_noise_free_plant():
     p = params(fixed_share=0.2, noise_cv=0.0, shutdown_days=5)
     df, meta, _ = simulate_plant(p, np.random.default_rng(5))
     baseline, _ = split(df, meta)
-    model = fit_baseline(baseline, "kwh ~ production")
-    # noise-free and linear: OLS is exact up to floating point
-    assert model.params["Intercept"] / p.mean_kwh_per_day == pytest.approx(0.2, rel=1e-9)
-    assert model.params["production"] == pytest.approx(0.8 * 1000 / 10, rel=1e-9)
+    # Plain least squares on the running days (the rows fit_baseline would use). Not fit_baseline:
+    # a noise-free plant can give exactly zero residuals on some platforms, and fit_baseline then
+    # (correctly) refuses to estimate their autocorrelation. This test checks the simulator only.
+    running = baseline[baseline["event"].isna()]
+    design = np.column_stack([np.ones(len(running)), running["production"].to_numpy()])
+    (intercept_kwh, slope_kwh_per_t), *_ = np.linalg.lstsq(
+        design, running["kwh"].to_numpy(), rcond=None
+    )
+    # noise-free and linear: least squares is exact up to floating point
+    assert intercept_kwh / p.mean_kwh_per_day == pytest.approx(0.2, rel=1e-9)
+    assert slope_kwh_per_t == pytest.approx(0.8 * 1000 / 10, rel=1e-9)
 
 
 # ---------- output format ----------
