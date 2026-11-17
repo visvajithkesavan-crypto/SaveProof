@@ -1,0 +1,10 @@
+{
+  "plant_id": "plant_007",
+  "sector": "foundry",
+  "timezone": "Asia/Kolkata",
+  "baseline_start": "2025-04-01",
+  "baseline_end": "2026-03-31",
+  "reporting_start": "2026-04-01",
+  "reporting_end": "2027-03-31",
+  "retrofit_date": "2026-04-01"
+}
